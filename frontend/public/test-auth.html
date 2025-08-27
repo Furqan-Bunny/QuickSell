@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Firebase Auth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        input, button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        h2 {
+            color: #333;
+            margin-top: 30px;
+        }
+        .section {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Firebase Auth Tester</h1>
+        
+        <div class="section">
+            <h2>Step 1: Create Test User</h2>
+            <button onclick="createTestUser()">Create test@example.com</button>
+            <div id="createResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>Step 2: Test Login</h2>
+            <input type="email" id="email" placeholder="Email" value="test@example.com">
+            <input type="password" id="password" placeholder="Password" value="Test123!">
+            <button onclick="testLogin()">Test Login</button>
+            <div id="loginResult"></div>
+        </div>
+
+        <div class="section">
+            <h2>Step 3: Check Current User</h2>
+            <button onclick="checkUser()">Check Current User</button>
+            <div id="userResult"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword,
+            signInWithEmailAndPassword,
+            updateProfile
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+        import { 
+            getFirestore,
+            doc, 
+            setDoc,
+            serverTimestamp
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+        // Your Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9THl_SNKyazeQAEBV_PQUE10y9PqvGR4",
+            authDomain: "quicksell-80aad.firebaseapp.com",
+            projectId: "quicksell-80aad",
+            storageBucket: "quicksell-80aad.firebasestorage.app",
+            messagingSenderId: "268405827471",
+            appId: "1:268405827471:web:60468bf66f1f1100670dfa"
+        };
+
+        // Initialize Firebase
+        console.log('Initializing Firebase with config:', firebaseConfig);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        window.auth = auth; // Make it global for debugging
+
+        window.createTestUser = async function() {
+            const resultDiv = document.getElementById('createResult');
+            try {
+                resultDiv.className = 'result info';
+                resultDiv.textContent = 'Creating user...';
+                
+                const email = 'test@example.com';
+                const password = 'Test123!';
+                
+                // Create user
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                console.log('User created:', userCredential.user);
+                
+                // Update profile
+                await updateProfile(userCredential.user, {
+                    displayName: 'testuser'
+                });
+                
+                // Save to Firestore
+                await setDoc(doc(db, 'users', userCredential.user.uid), {
+                    uid: userCredential.user.uid,
+                    email: email,
+                    username: 'testuser',
+                    firstName: 'Test',
+                    lastName: 'User',
+                    role: 'user',
+                    balance: 5000,
+                    emailVerified: false,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                });
+                
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ User created successfully!
+Email: ${email}
+Password: ${password}
+UID: ${userCredential.user.uid}`;
+                
+                // Sign out after creation
+                await auth.signOut();
+                
+            } catch (error) {
+                console.error('Create error:', error);
+                resultDiv.className = 'result error';
+                if (error.code === 'auth/email-already-in-use') {
+                    resultDiv.textContent = '⚠️ User already exists! You can proceed to login.';
+                } else {
+                    resultDiv.textContent = `❌ Error: ${error.code}\n${error.message}`;
+                }
+            }
+        };
+
+        window.testLogin = async function() {
+            const resultDiv = document.getElementById('loginResult');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                resultDiv.className = 'result info';
+                resultDiv.textContent = 'Attempting login...';
+                
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                console.log('Login successful:', userCredential.user);
+                
+                const token = await userCredential.user.getIdToken();
+                
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Login successful!
+Email: ${userCredential.user.email}
+UID: ${userCredential.user.uid}
+Display Name: ${userCredential.user.displayName}
+Token (first 50 chars): ${token.substring(0, 50)}...`;
+                
+            } catch (error) {
+                console.error('Login error:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Login failed!
+Error Code: ${error.code}
+Message: ${error.message}
+
+Common issues:
+- auth/user-not-found: User doesn't exist (create it first)
+- auth/wrong-password: Incorrect password
+- auth/invalid-email: Email format is invalid`;
+            }
+        };
+
+        window.checkUser = function() {
+            const resultDiv = document.getElementById('userResult');
+            const user = auth.currentUser;
+            
+            if (user) {
+                resultDiv.className = 'result success';
+                resultDiv.textContent = `✅ Current user:
+Email: ${user.email}
+UID: ${user.uid}
+Display Name: ${user.displayName}
+Email Verified: ${user.emailVerified}`;
+            } else {
+                resultDiv.className = 'result info';
+                resultDiv.textContent = '❌ No user is currently logged in';
+            }
+        };
+
+        // Check auth state on load
+        auth.onAuthStateChanged((user) => {
+            console.log('Auth state changed:', user);
+            if (user) {
+                console.log('User is signed in:', user.email);
+            } else {
+                console.log('No user signed in');
+            }
+        });
+    </script>
+</body>
+</html>

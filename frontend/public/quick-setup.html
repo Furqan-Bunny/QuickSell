@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quicksell - Quick Setup</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f3f4f6;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+        }
+        button:hover {
+            background: #5a67d8;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .message {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+        .info {
+            background: #cfe2ff;
+            color: #084298;
+            border: 1px solid #b6d4fe;
+            display: block;
+        }
+        .quick-users {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+        .quick-btn {
+            background: #f3f4f6;
+            color: #333;
+            font-size: 14px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .quick-btn:hover {
+            background: #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Quicksell Setup</h1>
+        
+        <div class="quick-users">
+            <h3>Quick Create Test Users</h3>
+            <button class="quick-btn" onclick="createTestAdmin()">
+                Create Admin User<br>
+                <small>admin@quicksell.com / Admin123!</small>
+            </button>
+            <button class="quick-btn" onclick="createTestUser()">
+                Create Test User<br>
+                <small>test@example.com / Test123!</small>
+            </button>
+        </div>
+
+        <div style="margin: 20px 0; text-align: center; color: #999;">— OR —</div>
+
+        <h3>Create Custom User</h3>
+        <form id="signupForm">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="email" required>
+            </div>
+            <div class="form-group">
+                <label>Password (min 6 characters)</label>
+                <input type="password" id="password" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="username" required>
+            </div>
+            <div class="form-group">
+                <label>First Name</label>
+                <input type="text" id="firstName" required>
+            </div>
+            <div class="form-group">
+                <label>Last Name</label>
+                <input type="text" id="lastName" required>
+            </div>
+            <div class="form-group">
+                <label>Role</label>
+                <select id="role" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px;">
+                    <option value="user">User (Buyer)</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <button type="submit">Create Account</button>
+        </form>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword,
+            updateProfile,
+            signInWithEmailAndPassword
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+        import { 
+            getFirestore,
+            doc, 
+            setDoc,
+            serverTimestamp
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9THl_SNKyazeQAEBV_PQUE10y9PqvGR4",
+            authDomain: "quicksell-80aad.firebaseapp.com",
+            projectId: "quicksell-80aad",
+            storageBucket: "quicksell-80aad.firebasestorage.app",
+            messagingSenderId: "268405827471",
+            appId: "1:268405827471:web:60468bf66f1f1100670dfa"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        function showMessage(text, type = 'info') {
+            const messageEl = document.getElementById('message');
+            messageEl.textContent = text;
+            messageEl.className = 'message ' + type;
+        }
+
+        async function createUser(userData) {
+            try {
+                showMessage('Creating user...', 'info');
+                
+                // Try to sign in first to check if user exists
+                try {
+                    await signInWithEmailAndPassword(auth, userData.email, userData.password);
+                    showMessage(`User ${userData.email} already exists! You can login with these credentials.`, 'info');
+                    return;
+                } catch (e) {
+                    // User doesn't exist, proceed with creation
+                }
+
+                // Create user in Firebase Auth
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth,
+                    userData.email,
+                    userData.password
+                );
+                
+                const user = userCredential.user;
+
+                // Update display name
+                await updateProfile(user, {
+                    displayName: userData.username
+                });
+
+                // Create user profile in Firestore
+                const userProfile = {
+                    uid: user.uid,
+                    email: userData.email,
+                    username: userData.username,
+                    firstName: userData.firstName,
+                    lastName: userData.lastName,
+                    role: userData.role,
+                    balance: userData.role === 'admin' ? 100000 : 5000,
+                    emailVerified: false,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                };
+
+                await setDoc(doc(db, 'users', user.uid), userProfile);
+                
+                showMessage(`✅ Success! User created: ${userData.email} / ${userData.password}`, 'success');
+                
+                // Sign out so they can login with the app
+                await auth.signOut();
+                
+            } catch (error) {
+                console.error('Error:', error);
+                if (error.code === 'auth/email-already-in-use') {
+                    showMessage(`User ${userData.email} already exists!`, 'info');
+                } else if (error.code === 'auth/weak-password') {
+                    showMessage('Password is too weak. Use at least 6 characters.', 'error');
+                } else if (error.code === 'auth/invalid-email') {
+                    showMessage('Invalid email address.', 'error');
+                } else {
+                    showMessage(`Error: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        window.createTestAdmin = async function() {
+            await createUser({
+                email: 'admin@quicksell.com',
+                password: 'Admin123!',
+                username: 'admin',
+                firstName: 'Admin',
+                lastName: 'User',
+                role: 'admin'
+            });
+        };
+
+        window.createTestUser = async function() {
+            await createUser({
+                email: 'test@example.com',
+                password: 'Test123!',
+                username: 'testuser',
+                firstName: 'Test',
+                lastName: 'User',
+                role: 'user'
+            });
+        };
+
+        document.getElementById('signupForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const userData = {
+                email: document.getElementById('email').value,
+                password: document.getElementById('password').value,
+                username: document.getElementById('username').value,
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                role: document.getElementById('role').value
+            };
+            
+            await createUser(userData);
+        });
+    </script>
+</body>
+</html>

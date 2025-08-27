@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quicksell Firebase Seeder</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .warning { color: #f59e0b; }
+        .info { color: #3b82f6; }
+        .credentials {
+            margin-top: 20px;
+            padding: 15px;
+            background: #eff6ff;
+            border-radius: 8px;
+            border: 1px solid #3b82f6;
+        }
+        .credentials h3 {
+            margin-top: 0;
+            color: #1e40af;
+        }
+        .credentials p {
+            margin: 5px 0;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌱 Quicksell Firebase Seeder</h1>
+        <p class="description">
+            This tool will populate your Firebase database with sample data including users, products, and bids.
+        </p>
+        
+        <button id="seedBtn" onclick="runSeed()">Start Seeding</button>
+        
+        <div id="output"></div>
+        
+        <div class="credentials" style="display: none;" id="credentials">
+            <h3>🔑 Login Credentials</h3>
+            <p><strong>Admin:</strong> admin@quicksell.com / Admin123!</p>
+            <p><strong>User 1:</strong> john.doe@example.com / Password123!</p>
+            <p><strong>User 2:</strong> jane.smith@example.com / Password123!</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
+        import { 
+            getAuth, 
+            createUserWithEmailAndPassword,
+            updateProfile
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
+        import { 
+            getFirestore,
+            doc, 
+            setDoc,
+            collection,
+            addDoc,
+            serverTimestamp,
+            Timestamp
+        } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyA9THl_SNKyazeQAEBV_PQUE10y9PqvGR4",
+            authDomain: "quicksell-80aad.firebaseapp.com",
+            projectId: "quicksell-80aad",
+            storageBucket: "quicksell-80aad.firebasestorage.app",
+            messagingSenderId: "268405827471",
+            appId: "1:268405827471:web:60468bf66f1f1100670dfa"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Sample data
+        const sampleUsers = [
+            {
+                email: 'admin@quicksell.com',
+                password: 'Admin123!',
+                username: 'admin',
+                firstName: 'Admin',
+                lastName: 'User',
+                role: 'admin',
+                balance: 100000
+            },
+            {
+                email: 'john.doe@example.com',
+                password: 'Password123!',
+                username: 'johndoe',
+                firstName: 'John',
+                lastName: 'Doe',
+                role: 'user',
+                balance: 5000
+            },
+            {
+                email: 'jane.smith@example.com',
+                password: 'Password123!',
+                username: 'janesmith',
+                firstName: 'Jane',
+                lastName: 'Smith',
+                role: 'user',
+                balance: 8000
+            }
+        ];
+
+        const sampleProducts = [
+            {
+                title: 'iPhone 14 Pro Max 256GB',
+                description: 'Excellent condition, Deep Purple, 256GB',
+                images: ['https://images.unsplash.com/photo-1678685888221-cda773a3dcdb?w=800'],
+                category: 'Electronics',
+                startingPrice: 15000,
+                currentPrice: 16500,
+                buyNowPrice: 22000,
+                incrementAmount: 500,
+                condition: 'excellent',
+                status: 'active',
+                shippingCost: 150,
+                location: 'Cape Town',
+                featured: true
+            },
+            {
+                title: 'MacBook Pro M2 13"',
+                description: '2023 Model, 8GB RAM, 512GB SSD',
+                images: ['https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800'],
+                category: 'Electronics',
+                startingPrice: 18000,
+                currentPrice: 19500,
+                buyNowPrice: 28000,
+                incrementAmount: 1000,
+                condition: 'like-new',
+                status: 'active',
+                shippingCost: 200,
+                location: 'Durban',
+                featured: false
+            },
+            {
+                title: 'Nike Air Jordan 1',
+                description: 'Size 10, Chicago Red, Original box',
+                images: ['https://images.unsplash.com/photo-1600181516264-3ea807ff44b9?w=800'],
+                category: 'Fashion',
+                startingPrice: 3500,
+                currentPrice: 4200,
+                buyNowPrice: 5500,
+                incrementAmount: 200,
+                condition: 'good',
+                status: 'active',
+                shippingCost: 150,
+                location: 'Pretoria',
+                featured: true
+            },
+            {
+                title: 'PlayStation 5 Console',
+                description: 'With extra controller and 3 games',
+                images: ['https://images.unsplash.com/photo-1606813907291-d86efa9b94db?w=800'],
+                category: 'Electronics',
+                startingPrice: 10000,
+                currentPrice: 11500,
+                buyNowPrice: 14000,
+                incrementAmount: 500,
+                condition: 'like-new',
+                status: 'active',
+                shippingCost: 200,
+                location: 'Johannesburg',
+                featured: true
+            },
+            {
+                title: 'Samsung 55" 4K Smart TV',
+                description: 'Crystal UHD, Model AU8000',
+                images: ['https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800'],
+                category: 'Electronics',
+                startingPrice: 6000,
+                currentPrice: 6500,
+                buyNowPrice: 9500,
+                incrementAmount: 250,
+                condition: 'excellent',
+                status: 'active',
+                shippingCost: 350,
+                location: 'Port Elizabeth',
+                featured: false
+            }
+        ];
+
+        window.runSeed = async function() {
+            const output = document.getElementById('output');
+            const btn = document.getElementById('seedBtn');
+            btn.disabled = true;
+            output.innerHTML = '<span class="info">🚀 Starting seeding process...</span>\n\n';
+
+            try {
+                const createdUsers = [];
+                
+                // Create users
+                output.innerHTML += '<span class="info">👥 Creating users...</span>\n';
+                
+                for (const userData of sampleUsers) {
+                    try {
+                        const userCredential = await createUserWithEmailAndPassword(
+                            auth,
+                            userData.email,
+                            userData.password
+                        );
+                        
+                        await updateProfile(userCredential.user, {
+                            displayName: userData.username
+                        });
+
+                        const userProfile = {
+                            uid: userCredential.user.uid,
+                            email: userData.email,
+                            username: userData.username,
+                            firstName: userData.firstName,
+                            lastName: userData.lastName,
+                            role: userData.role,
+                            balance: userData.balance,
+                            emailVerified: false,
+                            createdAt: serverTimestamp(),
+                            updatedAt: serverTimestamp()
+                        };
+
+                        await setDoc(doc(db, 'users', userCredential.user.uid), userProfile);
+                        createdUsers.push(userProfile);
+                        output.innerHTML += `<span class="success">✅ Created user: ${userData.email}</span>\n`;
+                    } catch (error) {
+                        if (error.code === 'auth/email-already-in-use') {
+                            output.innerHTML += `<span class="warning">⚠️ User exists: ${userData.email}</span>\n`;
+                        } else {
+                            output.innerHTML += `<span class="error">❌ Failed: ${userData.email} - ${error.message}</span>\n`;
+                        }
+                    }
+                }
+
+                // Create products
+                output.innerHTML += '\n<span class="info">📦 Creating products...</span>\n';
+                const adminUser = createdUsers.find(u => u.role === 'admin') || createdUsers[0];
+                
+                if (adminUser) {
+                    for (const productData of sampleProducts) {
+                        try {
+                            const startDate = new Date();
+                            startDate.setDate(startDate.getDate() - 3);
+                            
+                            const endDate = new Date();
+                            endDate.setDate(endDate.getDate() + 7);
+
+                            const product = {
+                                ...productData,
+                                sellerId: adminUser.uid,
+                                sellerName: adminUser.username,
+                                startDate: Timestamp.fromDate(startDate),
+                                endDate: Timestamp.fromDate(endDate),
+                                views: Math.floor(Math.random() * 1000),
+                                totalBids: Math.floor(Math.random() * 20),
+                                uniqueBidders: Math.floor(Math.random() * 10),
+                                watchers: Math.floor(Math.random() * 50),
+                                freeShipping: false,
+                                createdAt: serverTimestamp(),
+                                updatedAt: serverTimestamp()
+                            };
+
+                            await addDoc(collection(db, 'products'), product);
+                            output.innerHTML += `<span class="success">✅ Created: ${productData.title}</span>\n`;
+                        } catch (error) {
+                            output.innerHTML += `<span class="error">❌ Failed: ${productData.title}</span>\n`;
+                        }
+                    }
+                } else {
+                    output.innerHTML += '<span class="warning">⚠️ No admin user found for products</span>\n';
+                }
+
+                output.innerHTML += '\n<span class="success">🎉 Seeding completed successfully!</span>\n';
+                document.getElementById('credentials').style.display = 'block';
+                
+            } catch (error) {
+                output.innerHTML += `<span class="error">❌ Error: ${error.message}</span>\n`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Run Again';
+            }
+        };
+    </script>
+</body>
+</html>

@@ -81,15 +81,15 @@ if (!db) {
 
 // Import routes
 const authRoutes = require('./routes/auth');
-// const userRoutes = require('./routes/users');
-const productRoutes = require('./routes/products-simple'); // Temporary simple version
+// const userRoutes = require('./routes/users'); // Need to convert to Firebase
+const productRoutes = require('./routes/products-simple'); // Keep simple version for now
 const affiliateRoutes = require('./routes/affiliate');
-// const bidRoutes = require('./routes/bids');
-// const orderRoutes = require('./routes/orders');
-// const categoryRoutes = require('./routes/categories');
+// const bidRoutes = require('./routes/bids'); // Need to convert to Firebase
+// const orderRoutes = require('./routes/orders'); // Need to convert to Firebase
+const categoryRoutes = require('./routes/categories-firebase');
 const paymentRoutes = require('./routes/payments');
-// const adminRoutes = require('./routes/admin');
-// const notificationRoutes = require('./routes/notifications');
+// const adminRoutes = require('./routes/admin'); // Need to convert to Firebase
+// const notificationRoutes = require('./routes/notifications'); // Need to convert to Firebase
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -98,7 +98,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/affiliate', affiliateRoutes);
 // app.use('/api/bids', bidRoutes);
 // app.use('/api/orders', orderRoutes);
-// app.use('/api/categories', categoryRoutes);
+app.use('/api/categories', categoryRoutes);
 app.use('/api/payments', paymentRoutes);
 // app.use('/api/admin', adminRoutes);
 // app.use('/api/notifications', notificationRoutes);

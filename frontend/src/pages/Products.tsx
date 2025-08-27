@@ -12,12 +12,13 @@ import {
   ChevronRightIcon
 } from '@heroicons/react/24/outline'
 import ProductCard from '../components/ProductCard'
-import { categories, formatPrice } from '../data/mockData'
+import { formatPrice } from '../data/mockData'
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [products, setProducts] = useState<any[]>([])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>([])
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '')
   const [sortBy, setSortBy] = useState('newest')
@@ -46,8 +47,9 @@ const Products = () => {
   ]
 
   useEffect(() => {
-    // Load products from Firebase API
+    // Load products and categories from Firebase API
     loadProducts()
+    loadCategories()
   }, [])
 
   const loadProducts = async () => {
@@ -73,6 +75,17 @@ const Products = () => {
     } catch (error) {
       console.error('Error loading products:', error)
       setLoading(false)
+    }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const response = await axios.get('/api/categories')
+      if (response.data.success) {
+        setCategories(response.data.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error)
     }
   }
 
@@ -265,7 +278,7 @@ const Products = () => {
                       className="mr-2"
                     />
                     <span className="text-sm text-gray-700">
-                      {category.name} ({category.count})
+                      {category.icon} {category.name} ({category.count || 0})
                     </span>
                   </label>
                 ))}

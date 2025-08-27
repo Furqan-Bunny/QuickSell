@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const User = require('../models/User');
-const Product = require('../models/Product');
-const Order = require('../models/Order');
+const admin = require('firebase-admin');
 const { authMiddleware } = require('../middleware/auth');
 const { body, validationResult } = require('express-validator');
+
+const db = admin.firestore();
 
 // Configure multer for avatar uploads
 const storage = multer.diskStorage({

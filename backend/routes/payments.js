@@ -10,27 +10,29 @@ const db = admin.firestore();
 // Initialize Flutterwave payment
 router.post('/flutterwave/initialize', auth, async (req, res) => {
   try {
-    const { amount, description, productId } = req.body;
+    const { amount, currency, productId, customerDetails, metadata, redirectUrl, cancelUrl } = req.body;
     const user = req.user;
 
     const paymentData = {
       amount,
-      email: user.email,
-      name: user.displayName || user.username || user.email,
-      phone: user.phone || '',
-      description: description || 'Quicksell Payment',
+      currency: currency || 'ZAR',
+      email: customerDetails?.email || user.email,
+      name: customerDetails?.name || user.displayName || user.username || user.email,
+      phone: customerDetails?.phoneNumber || user.phone || '',
+      description: metadata?.productTitle || 'Quicksell Payment',
       userId: user.uid,
       productId,
-      orderId: `ORDER-${Date.now()}`
+      orderId: `ORDER-${Date.now()}`,
+      redirectUrl: redirectUrl
     };
 
     const result = await flutterwaveService.initializePayment(paymentData);
     
-    if (result.success) {
+    if (result.success && result.data) {
       // Store payment intent in Firestore
       await db.collection('paymentIntents').add({
         userId: user.uid,
-        transactionRef: result.data.data.tx_ref,
+        transactionRef: result.data.data?.tx_ref || result.data.tx_ref,
         amount,
         productId,
         status: 'pending',
@@ -39,16 +41,18 @@ router.post('/flutterwave/initialize', auth, async (req, res) => {
       });
 
       res.json({
-        success: true,
-        paymentLink: result.data.data.link,
-        transactionRef: result.data.data.tx_ref
+        status: 'success',
+        data: {
+          link: result.data.data?.link || result.data.link,
+          transactionRef: result.data.data?.tx_ref || result.data.tx_ref
+        }
       });
     } else {
-      res.status(400).json({ error: result.error });
+      res.status(400).json({ error: result.error || 'Failed to initialize payment' });
     }
   } catch (error) {
     console.error('Payment initialization error:', error);
-    res.status(500).json({ error: 'Failed to initialize payment' });
+    res.status(500).json({ error: error.message || 'Failed to initialize payment' });
   }
 });
 

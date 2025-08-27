@@ -22,6 +22,8 @@ import OrderDetail from './pages/OrderDetail'
 import Wishlist from './pages/Wishlist'
 import Notifications from './pages/Notifications'
 import Affiliate from './pages/Affiliate'
+import PaymentSuccess from './pages/PaymentSuccess'
+import PaymentCancel from './pages/PaymentCancel'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminProducts from './pages/admin/AdminProducts'
@@ -62,6 +64,8 @@ function App() {
         <Route path="register" element={<Register />} />
         <Route path="products" element={<Products />} />
         <Route path="products/:id" element={<ProductDetail />} />
+        <Route path="payment/success" element={<PaymentSuccess />} />
+        <Route path="payment/cancel" element={<PaymentCancel />} />
         
         {/* Protected Routes */}
         <Route element={<ProtectedRoute />}>

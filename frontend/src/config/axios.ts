@@ -4,14 +4,16 @@ import axios from 'axios'
 // This avoids double /api issues
 
 // Determine the API URL based on environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://quicksell-ruzc.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://quicksell-ruzc.onrender.com/api';
 
 // Request interceptor to add auth token
 axios.interceptors.request.use(
   (config) => {
     // If the URL doesn't start with http, prepend the base URL
     if (config.url && !config.url.startsWith('http')) {
-      config.url = `${API_BASE_URL}${config.url}`
+      // Remove leading /api if it exists to avoid double /api
+      const cleanUrl = config.url.startsWith('/api') ? config.url.substring(4) : config.url;
+      config.url = `${API_BASE_URL}${cleanUrl}`
     }
     
     const token = localStorage.getItem('token')

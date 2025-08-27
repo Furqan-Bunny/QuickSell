@@ -20,7 +20,7 @@ class FlutterwaveService {
     return `QS-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   }
 
-  // Initialize payment
+  // Initialize payment - Using standard payment link generation
   async initializePayment(data) {
     if (!this.flw) {
       return {
@@ -29,33 +29,54 @@ class FlutterwaveService {
       };
     }
     try {
-      const payload = {
-        tx_ref: this.generateTransactionRef(),
+      const tx_ref = this.generateTransactionRef();
+      
+      // Generate payment link using Flutterwave's standard hosted payment page
+      const baseUrl = 'https://checkout.flutterwave.com/v3/hosted/pay';
+      
+      // Determine the correct client URL based on environment
+      let clientUrl = process.env.CLIENT_URL;
+      if (process.env.NODE_ENV === 'production') {
+        clientUrl = 'https://quicksell-80aad.web.app';
+      } else if (!clientUrl || clientUrl === 'http://localhost:3000') {
+        // For development, use localhost or Firebase preview URL
+        clientUrl = data.redirectUrl ? new URL(data.redirectUrl).origin : 'https://quicksell-80aad.web.app';
+      }
+      
+      const params = new URLSearchParams({
+        public_key: process.env.FLUTTERWAVE_PUBLIC_KEY,
+        tx_ref: tx_ref,
         amount: data.amount,
-        currency: data.currency || 'ZAR', // South African Rand as default
-        redirect_url: `${process.env.CLIENT_URL}/payment/callback`,
+        currency: data.currency || 'ZAR',
+        redirect_url: `${clientUrl}/payment/success`,
+        customer_email: data.email,
+        customer_phonenumber: data.phone || '',
+        customer_name: data.name,
         payment_options: 'card,mobilemoney,ussd,banktransfer',
-        customer: {
-          email: data.email,
-          phonenumber: data.phone,
-          name: data.name
-        },
-        customizations: {
-          title: 'Quicksell Auction Payment',
-          description: data.description || 'Payment for auction item',
-          logo: `${process.env.CLIENT_URL}/logo.png`
-        },
-        meta: {
+        meta: JSON.stringify({
           orderId: data.orderId,
           productId: data.productId,
           userId: data.userId
-        }
-      };
-
-      const response = await this.flw.Payment.initialize(payload);
+        }),
+        customizations: JSON.stringify({
+          title: 'Quicksell Auction Payment',
+          description: data.description || 'Payment for auction item',
+          logo: `${clientUrl}/logo.png`
+        })
+      });
+      
+      const paymentLink = `${baseUrl}?${params.toString()}`;
+      
       return {
         success: true,
-        data: response
+        data: {
+          link: paymentLink,
+          tx_ref: tx_ref,
+          data: {
+            link: paymentLink,
+            tx_ref: tx_ref
+          }
+        }
       };
     } catch (error) {
       console.error('Flutterwave initialization error:', error);

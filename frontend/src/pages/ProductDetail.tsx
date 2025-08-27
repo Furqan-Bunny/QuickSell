@@ -152,8 +152,35 @@ const ProductDetail = () => {
       return
     }
 
-    // Handle buy now functionality
-    toast.success('Redirecting to checkout...')
+    try {
+      const response = await axios.post('/api/payments/flutterwave/initialize', {
+        productId: product.id,
+        amount: product.buyNowPrice || product.currentPrice,
+        currency: 'ZAR',
+        redirectUrl: `${window.location.origin}/payment/success`,
+        cancelUrl: `${window.location.origin}/payment/cancel`,
+        customerDetails: {
+          email: user?.email,
+          name: `${user?.firstName} ${user?.lastName}`,
+          phoneNumber: ''
+        },
+        metadata: {
+          productTitle: product.title,
+          sellerId: product.seller?._id,
+          buyerId: user?.id
+        }
+      })
+      
+      if (response.data.status === 'success' && response.data.data?.link) {
+        toast.success('Redirecting to payment...')
+        window.location.href = response.data.data.link
+      } else {
+        toast.error('Failed to initialize payment')
+      }
+    } catch (error) {
+      console.error('Payment initialization error:', error)
+      toast.error('Failed to process payment. Please try again.')
+    }
   }
 
   const handleWishlist = async () => {

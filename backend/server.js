@@ -80,7 +80,7 @@ const affiliateRoutes = require('./routes/affiliate');
 // const bidRoutes = require('./routes/bids');
 // const orderRoutes = require('./routes/orders');
 // const categoryRoutes = require('./routes/categories');
-// const paymentRoutes = require('./routes/payments');
+const paymentRoutes = require('./routes/payments');
 // const adminRoutes = require('./routes/admin');
 // const notificationRoutes = require('./routes/notifications');
 
@@ -92,7 +92,7 @@ app.use('/api/affiliate', affiliateRoutes);
 // app.use('/api/bids', bidRoutes);
 // app.use('/api/orders', orderRoutes);
 // app.use('/api/categories', categoryRoutes);
-// app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', paymentRoutes);
 // app.use('/api/admin', adminRoutes);
 // app.use('/api/notifications', notificationRoutes);
 

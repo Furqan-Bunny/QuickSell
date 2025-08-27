@@ -3,12 +3,15 @@ import axios from 'axios'
 // Don't set a base URL - let the components handle full paths
 // This avoids double /api issues
 
+// Determine the API URL based on environment
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://quicksell-ruzc.onrender.com';
+
 // Request interceptor to add auth token
 axios.interceptors.request.use(
   (config) => {
     // If the URL doesn't start with http, prepend the base URL
     if (config.url && !config.url.startsWith('http')) {
-      config.url = `http://localhost:5000${config.url}`
+      config.url = `${API_BASE_URL}${config.url}`
     }
     
     const token = localStorage.getItem('token')

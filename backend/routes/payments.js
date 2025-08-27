@@ -1,389 +1,212 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware: auth } = require('../middleware/auth');
 const flutterwaveService = require('../services/flutterwave');
 const payfastService = require('../services/payfast');
-const Order = require('../models/Order');
-const User = require('../models/User');
-const Product = require('../models/Product');
-const { db } = require('../config/firebase');
+const admin = require('firebase-admin');
 
-// Initialize payment - supports both Flutterwave and Payfast
-router.post('/initialize', authMiddleware, async (req, res) => {
+const db = admin.firestore();
+
+// Initialize Flutterwave payment
+router.post('/flutterwave/initialize', auth, async (req, res) => {
   try {
-    const { orderId, paymentMethod } = req.body;
-    
-    // Get order details
-    const order = await Order.findById(orderId)
-      .populate('product')
-      .populate('buyer');
-    
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    if (order.buyer._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
+    const { amount, description, productId } = req.body;
+    const user = req.user;
 
     const paymentData = {
-      orderId: order._id.toString(),
-      productId: order.product._id.toString(),
-      userId: req.user._id.toString(),
-      amount: order.totalAmount,
-      email: req.user.email,
-      phone: req.user.phone || '',
-      name: `${req.user.firstName} ${req.user.lastName}`,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
-      itemName: order.product.title,
-      description: `Payment for ${order.product.title}`,
-      bidId: order.bid
+      amount,
+      email: user.email,
+      name: user.displayName || user.username || user.email,
+      phone: user.phone || '',
+      description: description || 'Quicksell Payment',
+      userId: user.uid,
+      productId,
+      orderId: `ORDER-${Date.now()}`
     };
 
-    let result;
+    const result = await flutterwaveService.initializePayment(paymentData);
     
-    if (paymentMethod === 'flutterwave') {
-      result = await flutterwaveService.initializePayment(paymentData);
-    } else if (paymentMethod === 'payfast') {
-      result = await payfastService.initializePayment(paymentData);
-    } else {
-      return res.status(400).json({ error: 'Invalid payment method' });
-    }
-
     if (result.success) {
-      // Save payment initialization to Firebase
-      if (db) {
-        await db.collection('payment_intents').add({
-          orderId: orderId,
-          userId: req.user._id.toString(),
-          paymentMethod: paymentMethod,
-          amount: order.totalAmount,
-          status: 'pending',
-          createdAt: new Date(),
-          metadata: result.data
-        });
-      }
+      // Store payment intent in Firestore
+      await db.collection('paymentIntents').add({
+        userId: user.uid,
+        transactionRef: result.data.data.tx_ref,
+        amount,
+        productId,
+        status: 'pending',
+        paymentMethod: 'flutterwave',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
 
-      // Update order with payment method
-      order.paymentMethod = paymentMethod;
-      order.paymentStatus = 'pending';
-      await order.save();
-
-      res.json(result.data);
+      res.json({
+        success: true,
+        paymentLink: result.data.data.link,
+        transactionRef: result.data.data.tx_ref
+      });
     } else {
       res.status(400).json({ error: result.error });
     }
   } catch (error) {
     console.error('Payment initialization error:', error);
-    res.status(500).json({ error: 'Payment initialization failed' });
+    res.status(500).json({ error: 'Failed to initialize payment' });
   }
 });
 
-// Flutterwave webhook
-router.post('/flutterwave/webhook', async (req, res) => {
+// Verify Flutterwave payment
+router.post('/flutterwave/verify/:transactionId', auth, async (req, res) => {
+  try {
+    const { transactionId } = req.params;
+    
+    const result = await flutterwaveService.verifyPayment(transactionId);
+    
+    if (result.success) {
+      // Update payment status in Firestore
+      const paymentQuery = await db.collection('paymentIntents')
+        .where('transactionRef', '==', result.data.txRef)
+        .limit(1)
+        .get();
+      
+      if (!paymentQuery.empty) {
+        const paymentDoc = paymentQuery.docs[0];
+        await paymentDoc.ref.update({
+          status: 'completed',
+          completedAt: admin.firestore.FieldValue.serverTimestamp(),
+          transactionId: result.data.transactionId
+        });
+
+        // Add funds to user wallet
+        const userRef = db.collection('users').doc(req.user.uid);
+        const userDoc = await userRef.get();
+        const currentBalance = userDoc.data().balance || 0;
+        
+        await userRef.update({
+          balance: currentBalance + result.data.amount
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: 'Payment verified successfully',
+        data: result.data
+      });
+    } else {
+      res.status(400).json({ error: result.error });
+    }
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    res.status(500).json({ error: 'Failed to verify payment' });
+  }
+});
+
+// Flutterwave webhook endpoint
+router.post('/webhook/flutterwave', async (req, res) => {
   try {
     const signature = req.headers['verif-hash'];
     
     if (!signature || !flutterwaveService.validateWebhook(signature, req.body)) {
-      return res.status(401).json({ error: 'Invalid signature' });
+      return res.status(401).json({ error: 'Invalid webhook signature' });
     }
 
-    const { data } = req.body;
-    
-    if (data.status === 'successful') {
-      // Verify payment with Flutterwave
-      const verification = await flutterwaveService.verifyPayment(data.id);
-      
-      if (verification.success) {
-        // Update order
-        const order = await Order.findById(verification.data.meta.orderId);
-        if (order) {
-          order.paymentStatus = 'completed';
-          order.paymentDetails = {
-            transactionId: verification.data.transactionId,
-            txRef: verification.data.txRef,
-            paymentType: verification.data.paymentType,
-            paidAt: new Date()
-          };
-          await order.save();
+    const { event, data } = req.body;
+    console.log('Flutterwave webhook event:', event);
 
-          // Update Firebase
-          if (db) {
-            const snapshot = await db.collection('payment_intents')
-              .where('orderId', '==', order._id.toString())
-              .where('status', '==', 'pending')
-              .get();
+    switch(event) {
+      case 'charge.completed':
+        // Handle successful payment
+        if (data.status === 'successful') {
+          // Update payment intent
+          const paymentQuery = await db.collection('paymentIntents')
+            .where('transactionRef', '==', data.tx_ref)
+            .limit(1)
+            .get();
+          
+          if (!paymentQuery.empty) {
+            const paymentDoc = paymentQuery.docs[0];
+            const paymentData = paymentDoc.data();
             
-            snapshot.forEach(async (doc) => {
-              await doc.ref.update({
-                status: 'completed',
-                completedAt: new Date(),
-                transactionDetails: verification.data
-              });
+            // Update payment status
+            await paymentDoc.ref.update({
+              status: 'completed',
+              webhookData: data,
+              completedAt: admin.firestore.FieldValue.serverTimestamp()
             });
+            
+            // Add funds to user wallet
+            const userRef = db.collection('users').doc(paymentData.userId);
+            const userDoc = await userRef.get();
+            const currentBalance = userDoc.data().balance || 0;
+            
+            await userRef.update({
+              balance: currentBalance + data.amount
+            });
+            
+            // Create transaction record
+            await db.collection('transactions').add({
+              userId: paymentData.userId,
+              type: 'wallet_topup',
+              amount: data.amount,
+              currency: data.currency,
+              reference: data.tx_ref,
+              paymentMethod: 'flutterwave',
+              status: 'completed',
+              createdAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+            
+            console.log('Payment successful:', data.tx_ref, data.amount);
           }
-
-          // Update product status
-          const product = await Product.findById(order.product);
-          if (product) {
-            product.status = 'sold';
-            await product.save();
-          }
-
-          // Send notification to seller
-          const io = req.app.get('io');
-          io.to(`user-${order.seller}`).emit('payment-received', {
-            orderId: order._id,
-            amount: order.totalAmount
-          });
         }
-      }
+        break;
+      
+      case 'transfer.completed':
+        // Handle successful payout to seller
+        console.log('Transfer successful:', data);
+        break;
     }
 
-    res.sendStatus(200);
+    res.status(200).json({ status: 'success' });
   } catch (error) {
-    console.error('Flutterwave webhook error:', error);
+    console.error('Webhook processing error:', error);
     res.status(500).json({ error: 'Webhook processing failed' });
   }
 });
 
-// Payfast webhook (ITN - Instant Transaction Notification)
-router.post('/payfast/webhook', async (req, res) => {
+// Get user payment history
+router.get('/history', auth, async (req, res) => {
   try {
-    const pfData = req.body;
-    const pfParamString = Object.keys(pfData)
-      .map(key => `${key}=${encodeURIComponent(pfData[key])}`)
-      .join('&');
-
-    // Validate the payment notification
-    const isValid = await payfastService.validateWebhook(pfData, pfParamString);
+    const transactions = await db.collection('transactions')
+      .where('userId', '==', req.user.uid)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
     
-    if (!isValid) {
-      return res.status(400).send('Invalid notification');
-    }
-
-    if (pfData.payment_status === 'COMPLETE') {
-      // Update order
-      const order = await Order.findById(pfData.m_payment_id);
-      if (order) {
-        order.paymentStatus = 'completed';
-        order.paymentDetails = {
-          paymentId: pfData.pf_payment_id,
-          amount: parseFloat(pfData.amount_gross),
-          fee: parseFloat(pfData.amount_fee),
-          net: parseFloat(pfData.amount_net),
-          paymentMethod: pfData.payment_method,
-          paidAt: new Date()
-        };
-        await order.save();
-
-        // Update Firebase
-        if (db) {
-          const snapshot = await db.collection('payment_intents')
-            .where('orderId', '==', order._id.toString())
-            .where('status', '==', 'pending')
-            .get();
-          
-          snapshot.forEach(async (doc) => {
-            await doc.ref.update({
-              status: 'completed',
-              completedAt: new Date(),
-              transactionDetails: pfData
-            });
-          });
-        }
-
-        // Update product status
-        const product = await Product.findById(order.product);
-        if (product) {
-          product.status = 'sold';
-          await product.save();
-        }
-
-        // Send notification to seller
-        const io = req.app.get('io');
-        io.to(`user-${order.seller}`).emit('payment-received', {
-          orderId: order._id,
-          amount: order.totalAmount
-        });
-      }
-    }
-
-    res.sendStatus(200);
-  } catch (error) {
-    console.error('Payfast webhook error:', error);
-    res.status(500).send('Webhook processing failed');
-  }
-});
-
-// Verify payment status
-router.get('/verify/:orderId', authMiddleware, async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.orderId);
-    
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    if (order.buyer.toString() !== req.user._id.toString() && 
-        order.seller.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ error: 'Unauthorized' });
-    }
-
-    res.json({
-      orderId: order._id,
-      paymentStatus: order.paymentStatus,
-      paymentMethod: order.paymentMethod,
-      paymentDetails: order.paymentDetails
+    const history = [];
+    transactions.forEach(doc => {
+      history.push({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate()
+      });
     });
-  } catch (error) {
-    console.error('Payment verification error:', error);
-    res.status(500).json({ error: 'Verification failed' });
-  }
-});
-
-// Process refund
-router.post('/refund', authMiddleware, async (req, res) => {
-  try {
-    const { orderId, reason, amount } = req.body;
     
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({ error: 'Order not found' });
-    }
-
-    if (order.paymentStatus !== 'completed') {
-      return res.status(400).json({ error: 'Order not paid' });
-    }
-
-    const refundAmount = amount || order.totalAmount;
-    let result;
-
-    if (order.paymentMethod === 'flutterwave') {
-      result = await flutterwaveService.refundPayment(
-        order.paymentDetails.transactionId,
-        refundAmount
-      );
-    } else if (order.paymentMethod === 'payfast') {
-      result = await payfastService.refundPayment(
-        order.paymentDetails.paymentId,
-        refundAmount,
-        reason
-      );
-    } else {
-      return res.status(400).json({ error: 'Unsupported payment method for refund' });
-    }
-
-    if (result.success) {
-      order.paymentStatus = 'refunded';
-      order.refundDetails = {
-        amount: refundAmount,
-        reason: reason,
-        refundedAt: new Date(),
-        refundId: result.data.id || result.data.refund_id
-      };
-      await order.save();
-
-      // Update Firebase
-      if (db) {
-        await db.collection('refunds').add({
-          orderId: orderId,
-          amount: refundAmount,
-          reason: reason,
-          status: 'completed',
-          createdAt: new Date(),
-          processedBy: req.user._id.toString()
-        });
-      }
-
-      res.json({ message: 'Refund processed successfully', data: result.data });
-    } else {
-      res.status(400).json({ error: result.error });
-    }
+    res.json(history);
   } catch (error) {
-    console.error('Refund error:', error);
-    res.status(500).json({ error: 'Refund processing failed' });
+    console.error('Error fetching payment history:', error);
+    res.status(500).json({ error: 'Failed to fetch payment history' });
   }
 });
 
-// Get payment methods
-router.get('/methods', (req, res) => {
-  const methods = [
-    {
-      id: 'flutterwave',
-      name: 'Flutterwave',
-      description: 'Pay with card, mobile money, or bank transfer',
-      countries: ['ZA', 'NG', 'KE', 'GH', 'UG', 'TZ'],
-      currencies: ['ZAR', 'NGN', 'KES', 'GHS', 'UGX', 'TZS'],
-      logo: '/images/flutterwave-logo.png'
+// Test endpoint
+router.get('/test', (req, res) => {
+  res.json({
+    message: 'Payment routes working',
+    flutterwave: {
+      configured: !!(process.env.FLUTTERWAVE_PUBLIC_KEY && process.env.FLUTTERWAVE_SECRET_KEY),
+      testMode: process.env.FLUTTERWAVE_TEST_MODE === 'true'
     },
-    {
-      id: 'payfast',
-      name: 'PayFast',
-      description: 'South Africa\'s leading payment gateway',
-      countries: ['ZA'],
-      currencies: ['ZAR'],
-      logo: '/images/payfast-logo.png'
+    payfast: {
+      configured: !!(process.env.PAYFAST_MERCHANT_ID && process.env.PAYFAST_MERCHANT_KEY)
     }
-  ];
-
-  res.json(methods);
-});
-
-// Add funds to wallet
-router.post('/add-funds', authMiddleware, async (req, res) => {
-  try {
-    const { amount, paymentMethod } = req.body;
-    
-    const paymentData = {
-      userId: req.user._id.toString(),
-      amount: amount,
-      email: req.user.email,
-      phone: req.user.phone || '',
-      name: `${req.user.firstName} ${req.user.lastName}`,
-      firstName: req.user.firstName,
-      lastName: req.user.lastName,
-      description: 'Wallet top-up',
-      orderId: `wallet-${req.user._id}-${Date.now()}`
-    };
-
-    let result;
-    
-    if (paymentMethod === 'flutterwave') {
-      result = await flutterwaveService.initializePayment(paymentData);
-    } else if (paymentMethod === 'payfast') {
-      result = await payfastService.initializePayment(paymentData);
-    } else {
-      return res.status(400).json({ error: 'Invalid payment method' });
-    }
-
-    if (result.success) {
-      // Save to Firebase
-      if (db) {
-        await db.collection('wallet_topups').add({
-          userId: req.user._id.toString(),
-          amount: amount,
-          paymentMethod: paymentMethod,
-          status: 'pending',
-          createdAt: new Date(),
-          metadata: result.data
-        });
-      }
-
-      res.json(result.data);
-    } else {
-      res.status(400).json({ error: result.error });
-    }
-  } catch (error) {
-    console.error('Add funds error:', error);
-    res.status(500).json({ error: 'Failed to initialize wallet top-up' });
-  }
+  });
 });
 
 module.exports = router;

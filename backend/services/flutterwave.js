@@ -204,7 +204,8 @@ class FlutterwaveService {
 
   // Validate webhook signature
   validateWebhook(signature, payload) {
-    const hash = crypto.createHmac('sha256', process.env.FLUTTERWAVE_SECRET_HASH)
+    const secretHash = process.env.FLUTTERWAVE_ENCRYPTION_KEY || process.env.FLUTTERWAVE_SECRET_HASH;
+    const hash = crypto.createHmac('sha256', secretHash)
       .update(JSON.stringify(payload))
       .digest('hex');
     

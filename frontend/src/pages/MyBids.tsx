@@ -1,60 +1,82 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import axios from 'axios'
 import {
   ClockIcon,
   TrophyIcon,
   XCircleIcon,
   ArrowRightIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
-import { mockProducts, formatPrice, getTimeRemaining } from '../data/mockData'
+import { formatPrice, getTimeRemaining } from '../data/mockData'
 
 const MyBids = () => {
   const [activeTab, setActiveTab] = useState('active')
-  const [activeBids, setActiveBids] = useState<any[]>([])
-  const [wonBids, setWonBids] = useState<any[]>([])
-  const [lostBids, setLostBids] = useState<any[]>([])
+  const [bids, setBids] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState('ending-soon')
 
   useEffect(() => {
     loadBidData()
-  }, [])
+  }, [activeTab])
 
-  const loadBidData = () => {
-    // Mock data for user's bids
-    const mockActiveBids = mockProducts.slice(0, 4).map(product => ({
-      ...product,
-      userBid: product.currentPrice - 500,
-      maxBid: product.currentPrice,
-      isWinning: Math.random() > 0.5,
-      bidCount: Math.floor(Math.random() * 10) + 1,
-      lastBidTime: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000).toISOString()
-    }))
-    
-    const mockWonBids = mockProducts.slice(4, 6).map(product => ({
-      ...product,
-      userBid: product.currentPrice,
-      wonDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
-      paymentStatus: Math.random() > 0.5 ? 'paid' : 'pending'
-    }))
-    
-    const mockLostBids = mockProducts.slice(6, 8).map(product => ({
-      ...product,
-      userBid: product.currentPrice - 1000,
-      winningBid: product.currentPrice,
-      endedDate: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString()
-    }))
-
-    setActiveBids(mockActiveBids)
-    setWonBids(mockWonBids)
-    setLostBids(mockLostBids)
+  const loadBidData = async () => {
+    setLoading(true)
+    try {
+      let endpoint = '/api/bids/my-bids'
+      if (activeTab === 'won') {
+        endpoint = '/api/orders/my-orders?type=auction_win'
+      } else if (activeTab === 'lost') {
+        endpoint = '/api/bids/my-bids?status=outbid'
+      } else {
+        endpoint = '/api/bids/my-bids?status=active'
+      }
+      
+      const response = await axios.get(endpoint)
+      if (response.data.success) {
+        let data = response.data.data || []
+        
+        // Sort data based on sortBy value
+        switch (sortBy) {
+          case 'ending-soon':
+            data.sort((a: any, b: any) => {
+              const aDate = a.product?.endDate?._seconds ? new Date(a.product.endDate._seconds * 1000) : new Date()
+              const bDate = b.product?.endDate?._seconds ? new Date(b.product.endDate._seconds * 1000) : new Date()
+              return aDate.getTime() - bDate.getTime()
+            })
+            break
+          case 'price-high':
+            data.sort((a: any, b: any) => b.amount - a.amount)
+            break
+          case 'price-low':
+            data.sort((a: any, b: any) => a.amount - b.amount)
+            break
+          case 'recent':
+            data.sort((a: any, b: any) => {
+              const aDate = a.createdAt?._seconds ? new Date(a.createdAt._seconds * 1000) : new Date()
+              const bDate = b.createdAt?._seconds ? new Date(b.createdAt._seconds * 1000) : new Date()
+              return bDate.getTime() - aDate.getTime()
+            })
+            break
+        }
+        
+        setBids(data)
+      }
+    } catch (error) {
+      console.error('Error loading bids:', error)
+      setBids([])
+    } finally {
+      setLoading(false)
+    }
   }
 
+  // Calculate counts based on status
   const tabs = [
-    { id: 'active', label: 'Active Bids', count: activeBids.length },
-    { id: 'won', label: 'Won', count: wonBids.length },
-    { id: 'lost', label: 'Lost', count: lostBids.length }
+    { id: 'active', label: 'Active Bids', count: activeTab === 'active' ? bids.length : 0 },
+    { id: 'won', label: 'Won', count: activeTab === 'won' ? bids.length : 0 },
+    { id: 'lost', label: 'Lost', count: activeTab === 'lost' ? bids.length : 0 }
   ]
 
   const sortOptions = [
@@ -66,8 +88,13 @@ const MyBids = () => {
 
   const handleSort = (value: string) => {
     setSortBy(value)
-    // Implement sorting logic here
   }
+  
+  useEffect(() => {
+    if (!loading) {
+      loadBidData()
+    }
+  }, [sortBy])
 
   return (
     <motion.div
@@ -90,7 +117,7 @@ const MyBids = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Active</p>
-              <p className="text-2xl font-bold text-gray-900">{activeBids.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{activeTab === 'active' ? bids.length : 0}</p>
             </div>
             <ClockIcon className="h-8 w-8 text-blue-500" />
           </div>
@@ -100,7 +127,7 @@ const MyBids = () => {
             <div>
               <p className="text-sm text-gray-600">Winning</p>
               <p className="text-2xl font-bold text-gray-900">
-                {activeBids.filter(b => b.isWinning).length}
+                {activeTab === 'active' ? bids.filter(b => b.status === 'active').length : 0}
               </p>
             </div>
             <TrophyIcon className="h-8 w-8 text-green-500" />
@@ -111,7 +138,7 @@ const MyBids = () => {
             <div>
               <p className="text-sm text-gray-600">Outbid</p>
               <p className="text-2xl font-bold text-gray-900">
-                {activeBids.filter(b => !b.isWinning).length}
+                {activeTab === 'lost' ? bids.length : 0}
               </p>
             </div>
             <XCircleIcon className="h-8 w-8 text-red-500" />
@@ -121,7 +148,7 @@ const MyBids = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Won This Month</p>
-              <p className="text-2xl font-bold text-gray-900">{wonBids.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{activeTab === 'won' ? bids.length : 0}</p>
             </div>
             <TrophyIcon className="h-8 w-8 text-purple-500" />
           </div>
@@ -166,55 +193,68 @@ const MyBids = () => {
 
       {/* Content */}
       <div>
-        {activeTab === 'active' && (
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          </div>
+        ) : activeTab === 'active' && (
           <div className="space-y-4">
-            {activeBids.length > 0 ? (
-              activeBids.map((bid) => (
+            {bids.length > 0 ? (
+              bids.map((bid) => (
                 <div key={bid.id} className="card hover:shadow-lg transition-shadow">
                   <div className="flex items-start space-x-4">
                     <img
-                      src={bid.images[0]}
-                      alt={bid.title}
+                      src={bid.product?.images?.[0] || 'https://via.placeholder.com/96'}
+                      alt={bid.product?.title || 'Product'}
                       className="w-24 h-24 object-cover rounded-lg"
                     />
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <div>
                           <Link
-                            to={`/products/${bid.id}`}
+                            to={`/products/${bid.productId}`}
                             className="text-lg font-semibold text-gray-900 hover:text-primary-600"
                           >
-                            {bid.title}
+                            {bid.product?.title || 'Product'}
                           </Link>
                           <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                            <span>Your bid: {formatPrice(bid.userBid)}</span>
-                            <span>Current: {formatPrice(bid.maxBid)}</span>
-                            <span>{bid.bidCount} bids</span>
+                            <span>Your bid: {formatPrice(bid.amount)}</span>
+                            <span>Current: {formatPrice(bid.product?.currentPrice || 0)}</span>
+                            <span>{bid.product?.totalBids || 0} bids</span>
                           </div>
                           <div className="flex items-center mt-2">
-                            {bid.isWinning ? (
+                            {bid.status === 'active' && bid.amount >= (bid.product?.currentPrice || 0) ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 <TrophyIcon className="h-3 w-3 mr-1" />
                                 Winning
                               </span>
-                            ) : (
+                            ) : bid.status === 'outbid' ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                                 <XCircleIcon className="h-3 w-3 mr-1" />
                                 Outbid
                               </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <ExclamationCircleIcon className="h-3 w-3 mr-1" />
+                                Review
+                              </span>
                             )}
-                            <span className="ml-3 text-sm text-gray-500">
-                              <ClockIcon className="inline h-3 w-3" />
-                              {getTimeRemaining(bid.endDate)} remaining
-                            </span>
+                            {bid.product?.endDate && (
+                              <span className="ml-3 text-sm text-gray-500">
+                                <ClockIcon className="inline h-3 w-3" />
+                                {getTimeRemaining(bid.product.endDate._seconds ? 
+                                  new Date(bid.product.endDate._seconds * 1000) : 
+                                  bid.product.endDate)} remaining
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="text-right">
                           <Link
-                            to={`/products/${bid.id}`}
+                            to={`/products/${bid.productId}`}
                             className="btn-primary text-sm"
                           >
-                            {bid.isWinning ? 'View' : 'Increase Bid'}
+                            {bid.status === 'active' && bid.amount >= (bid.product?.currentPrice || 0) ? 'View' : 'Increase Bid'}
                           </Link>
                         </div>
                       </div>
@@ -237,29 +277,31 @@ const MyBids = () => {
           </div>
         )}
 
-        {activeTab === 'won' && (
+        {activeTab === 'won' && !loading && (
           <div className="space-y-4">
-            {wonBids.length > 0 ? (
-              wonBids.map((bid) => (
-                <div key={bid.id} className="card hover:shadow-lg transition-shadow">
+            {bids.length > 0 ? (
+              bids.map((order) => (
+                <div key={order.id} className="card hover:shadow-lg transition-shadow">
                   <div className="flex items-start space-x-4">
                     <img
-                      src={bid.images[0]}
-                      alt={bid.title}
+                      src={order.productImage || 'https://via.placeholder.com/96'}
+                      alt={order.productTitle || 'Product'}
                       className="w-24 h-24 object-cover rounded-lg"
                     />
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {bid.title}
+                            {order.productTitle || 'Product'}
                           </h3>
                           <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                            <span>Won for: {formatPrice(bid.userBid)}</span>
-                            <span>Won on: {new Date(bid.wonDate).toLocaleDateString()}</span>
+                            <span>Won for: {formatPrice(order.amount)}</span>
+                            <span>Won on: {order.createdAt ? 
+                              new Date(order.createdAt._seconds ? order.createdAt._seconds * 1000 : order.createdAt).toLocaleDateString() : 
+                              'Unknown'}</span>
                           </div>
                           <div className="mt-2">
-                            {bid.paymentStatus === 'paid' ? (
+                            {order.paymentStatus === 'completed' ? (
                               <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                 Payment Complete
                               </span>
@@ -271,13 +313,16 @@ const MyBids = () => {
                           </div>
                         </div>
                         <div className="text-right space-y-2">
-                          {bid.paymentStatus === 'pending' && (
-                            <button className="btn-primary text-sm">
+                          {order.paymentStatus === 'pending' && (
+                            <Link
+                              to={`/orders/${order.id}/pay`}
+                              className="btn-primary text-sm block"
+                            >
                               Pay Now
-                            </button>
+                            </Link>
                           )}
                           <Link
-                            to={`/orders/${bid.id}`}
+                            to={`/orders/${order.id}`}
                             className="btn-outline text-sm block"
                           >
                             View Order
@@ -300,29 +345,33 @@ const MyBids = () => {
           </div>
         )}
 
-        {activeTab === 'lost' && (
+        {activeTab === 'lost' && !loading && (
           <div className="space-y-4">
-            {lostBids.length > 0 ? (
-              lostBids.map((bid) => (
+            {bids.length > 0 ? (
+              bids.map((bid) => (
                 <div key={bid.id} className="card hover:shadow-lg transition-shadow">
                   <div className="flex items-start space-x-4">
                     <img
-                      src={bid.images[0]}
-                      alt={bid.title}
+                      src={bid.product?.images?.[0] || 'https://via.placeholder.com/96'}
+                      alt={bid.product?.title || 'Product'}
                       className="w-24 h-24 object-cover rounded-lg grayscale opacity-75"
                     />
                     <div className="flex-1">
                       <div className="flex justify-between items-start">
                         <div>
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {bid.title}
+                            {bid.product?.title || 'Product'}
                           </h3>
                           <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
-                            <span>Your bid: {formatPrice(bid.userBid)}</span>
-                            <span>Winning bid: {formatPrice(bid.winningBid)}</span>
+                            <span>Your bid: {formatPrice(bid.amount)}</span>
+                            <span>Winning bid: {formatPrice(bid.product?.currentPrice || 0)}</span>
                           </div>
                           <p className="text-xs text-gray-500 mt-1">
-                            Ended: {new Date(bid.endedDate).toLocaleDateString()}
+                            {bid.product?.status === 'ended' || bid.product?.status === 'sold' ? 
+                              `Ended: ${bid.product?.endDate ? 
+                                new Date(bid.product.endDate._seconds ? bid.product.endDate._seconds * 1000 : bid.product.endDate).toLocaleDateString() : 
+                                'Unknown'}` : 
+                              'Auction still active'}
                           </p>
                         </div>
                         <Link

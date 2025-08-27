@@ -30,7 +30,7 @@ interface AuthState {
   updateUser: (user: User) => void
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://quicksell-ruzc.onrender.com/api'
+const API_URL = import.meta.env.VITE_API_URL || 'https://quicksell-1-4020.onrender.com/api'
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,

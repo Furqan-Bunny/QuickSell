@@ -20,63 +20,72 @@ class FlutterwaveService {
     return `QS-${Date.now()}-${crypto.randomBytes(4).toString('hex')}`;
   }
 
-  // Initialize payment - Using standard payment link generation
+  // Initialize payment - Using Flutterwave API
   async initializePayment(data) {
-    if (!this.flw) {
-      return {
-        success: false,
-        error: 'Payment service not configured'
-      };
-    }
     try {
       const tx_ref = this.generateTransactionRef();
-      
-      // Generate payment link using Flutterwave's standard hosted payment page
-      const baseUrl = 'https://checkout.flutterwave.com/v3/hosted/pay';
-      
-      // Always use production URL for Flutterwave (they block localhost)
       const clientUrl = 'https://quicksell-80aad.web.app';
       
-      const params = new URLSearchParams({
-        public_key: process.env.FLUTTERWAVE_PUBLIC_KEY,
+      // Use axios to call Flutterwave API directly
+      const axios = require('axios');
+      
+      const payload = {
         tx_ref: tx_ref,
         amount: data.amount,
         currency: data.currency || 'ZAR',
         redirect_url: `${clientUrl}/payment/success`,
-        customer_email: data.email,
-        customer_phonenumber: data.phone || '',
-        customer_name: data.name,
-        payment_options: 'card,mobilemoney,ussd,banktransfer',
-        meta: JSON.stringify({
-          orderId: data.orderId,
-          productId: data.productId,
-          userId: data.userId
-        }),
-        customizations: JSON.stringify({
+        payment_options: 'card',
+        customer: {
+          email: data.email,
+          phonenumber: data.phone || '',
+          name: data.name
+        },
+        customizations: {
           title: 'Quicksell Auction Payment',
           description: data.description || 'Payment for auction item',
           logo: `${clientUrl}/logo.png`
-        })
-      });
-      
-      const paymentLink = `${baseUrl}?${params.toString()}`;
-      
-      return {
-        success: true,
-        data: {
-          link: paymentLink,
-          tx_ref: tx_ref,
-          data: {
-            link: paymentLink,
-            tx_ref: tx_ref
-          }
+        },
+        meta: {
+          orderId: data.orderId,
+          productId: data.productId,
+          userId: data.userId
         }
       };
+
+      const response = await axios.post(
+        'https://api.flutterwave.com/v3/payments',
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.status === 'success') {
+        return {
+          success: true,
+          data: {
+            link: response.data.data.link,
+            tx_ref: tx_ref,
+            data: {
+              link: response.data.data.link,
+              tx_ref: tx_ref
+            }
+          }
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data.message || 'Payment initialization failed'
+        };
+      }
     } catch (error) {
-      console.error('Flutterwave initialization error:', error);
+      console.error('Flutterwave initialization error:', error.response?.data || error.message);
       return {
         success: false,
-        error: error.message
+        error: error.response?.data?.message || error.message || 'Payment initialization failed'
       };
     }
   }

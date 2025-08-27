@@ -34,14 +34,8 @@ class FlutterwaveService {
       // Generate payment link using Flutterwave's standard hosted payment page
       const baseUrl = 'https://checkout.flutterwave.com/v3/hosted/pay';
       
-      // Determine the correct client URL based on environment
-      let clientUrl = process.env.CLIENT_URL;
-      if (process.env.NODE_ENV === 'production') {
-        clientUrl = 'https://quicksell-80aad.web.app';
-      } else if (!clientUrl || clientUrl === 'http://localhost:3000') {
-        // For development, use localhost or Firebase preview URL
-        clientUrl = data.redirectUrl ? new URL(data.redirectUrl).origin : 'https://quicksell-80aad.web.app';
-      }
+      // Always use production URL for Flutterwave (they block localhost)
+      const clientUrl = 'https://quicksell-80aad.web.app';
       
       const params = new URLSearchParams({
         public_key: process.env.FLUTTERWAVE_PUBLIC_KEY,

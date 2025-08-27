@@ -8,7 +8,7 @@ import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 import ImageGallery from 'react-image-gallery'
 import Countdown from 'react-countdown'
-import io from 'socket.io-client'
+import createSocket from '../config/socket'
 import {
   HeartIcon,
   ShareIcon,
@@ -49,7 +49,7 @@ const ProductDetail = () => {
     fetchProduct()
     
     // Connect to socket for real-time updates
-    const newSocket = io('http://localhost:5000')
+    const newSocket = createSocket()
     setSocket(newSocket)
     
     if (id) {

@@ -9,7 +9,7 @@ const db = admin.firestore();
 // Create order after auction win or buy now
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const { productId, type, amount } = req.body;
+    const { productId, type, amount, shippingInfo, paymentMethod } = req.body;
     const buyerId = req.user.uid;
     
     // Validate input
@@ -28,14 +28,17 @@ router.post('/', authMiddleware, async (req, res) => {
     
     // Verify product is available for purchase
     if (type === 'buy_now') {
-      if (product.status !== 'active') {
+      // Allow products that are active, pending, or don't have status set
+      if (product.status && !['active', 'pending'].includes(product.status)) {
         return res.status(400).json({ error: 'Product is no longer available' });
       }
-      if (!product.buyNowPrice) {
+      if (!product.buyNowPrice && !product.currentPrice) {
         return res.status(400).json({ error: 'Buy Now not available for this product' });
       }
-      if (amount !== product.buyNowPrice) {
-        return res.status(400).json({ error: 'Invalid purchase amount' });
+      // Check amount matches either buyNowPrice or currentPrice
+      const expectedPrice = product.buyNowPrice || product.currentPrice;
+      if (Math.abs(amount - expectedPrice) > 0.01) {
+        return res.status(400).json({ error: `Invalid purchase amount. Expected: ${expectedPrice}, Got: ${amount}` });
       }
     } else if (type === 'auction_win') {
       if (product.status !== 'ended') {
@@ -62,15 +65,26 @@ router.post('/', authMiddleware, async (req, res) => {
       productTitle: product.title,
       productImage: product.images?.[0] || '',
       buyerId,
-      buyerName: `${buyer.firstName} ${buyer.lastName}`,
-      buyerEmail: buyer.email,
+      buyerName: shippingInfo?.fullName || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || buyer.name || 'Unknown',
+      buyerEmail: shippingInfo?.email || buyer.email,
       sellerId: product.sellerId,
-      sellerName: seller ? `${seller.firstName} ${seller.lastName}` : 'Unknown',
+      sellerName: seller ? (`${seller.firstName || ''} ${seller.lastName || ''}`.trim() || seller.name || 'Unknown') : 'Unknown',
       type, // 'buy_now' or 'auction_win'
       amount,
       status: 'pending_payment',
       paymentStatus: 'pending',
-      shippingAddress: buyer.address || {},
+      paymentMethod: paymentMethod || 'pending',
+      shippingInfo: shippingInfo || {
+        fullName: buyer.name || `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim(),
+        email: buyer.email,
+        phone: buyer.phone || '',
+        address: buyer.address || '',
+        city: buyer.city || '',
+        province: buyer.province || '',
+        postalCode: buyer.postalCode || '',
+        country: buyer.country || 'South Africa'
+      },
+      shippingAddress: buyer.address || {}, // Keep for backward compatibility
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
@@ -101,13 +115,17 @@ router.post('/', authMiddleware, async (req, res) => {
         });
       }
       
-      return { orderId: orderRef.id, ...orderData };
+      return { id: orderRef.id, orderId: orderRef.id, ...orderData };
     });
     
     res.status(201).json({
       success: true,
       message: 'Order created successfully',
-      data: result
+      data: {
+        id: result.id,
+        orderId: result.orderId,
+        ...result
+      }
     });
   } catch (error) {
     console.error('Error creating order:', error);

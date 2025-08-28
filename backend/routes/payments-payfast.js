@@ -138,7 +138,7 @@ router.post('/initialize', authMiddleware, async (req, res) => {
       status: 'pending',
       gateway: 'payfast',
       payfastData: {
-        merchant_id: config.merchantId,
+        merchant_id: payfastData.merchant_id, // Use the actual value from payfastData, not config
         m_payment_id: paymentId,
         amount: amountInRands
       },

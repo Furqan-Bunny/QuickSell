@@ -129,7 +129,7 @@ const AdminCategories = () => {
     }
   }
 
-  const handleDeleteCategory = async (categoryId: string) => {
+  const handleDeleteCategoryAPI = async (categoryId: string) => {
     if (!confirm('Are you sure you want to delete this category?')) return
 
     try {
@@ -148,6 +148,9 @@ const AdminCategories = () => {
     }
   }
 
+  // Add filter status state
+  const [filterStatus, setFilterStatus] = useState('all')
+  
   // Mock categories data (removed - using real data now)
   const mockCategories = [
     {
@@ -272,7 +275,7 @@ const AdminCategories = () => {
     setShowEditModal(true)
   }
 
-  const handleDeleteCategory = (categoryId: string) => {
+  const handleDeleteCategoryMock = (categoryId: string) => {
     if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
       toast.success('Category deleted successfully')
     }
@@ -508,8 +511,8 @@ const AdminCategories = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm text-gray-600">
-                        <p>{category.updatedAt ? new Date(category.updatedAt._seconds ? category.updatedAt._seconds * 1000 : category.updatedAt).toLocaleDateString() : 'N/A'}</p>
-                        <p className="text-xs text-gray-500">Order: {category.order || 0}</p>
+                        <p>{(category as any).updatedAt ? new Date((category as any).updatedAt._seconds ? (category as any).updatedAt._seconds * 1000 : (category as any).updatedAt).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-xs text-gray-500">Order: {(category as any).order || 0}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -522,7 +525,7 @@ const AdminCategories = () => {
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteCategory(category.id)}
+                          onClick={() => handleDeleteCategoryAPI(category.id)}
                           className="p-1 text-gray-600 hover:text-red-600"
                           title="Delete Category"
                           disabled={category.productCount > 0}

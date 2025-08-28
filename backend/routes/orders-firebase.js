@@ -26,11 +26,25 @@ router.post('/', authMiddleware, async (req, res) => {
     
     const product = productDoc.data();
     
+    // Log product details for debugging
+    console.log('Product details:', {
+      id: productId,
+      status: product.status,
+      buyNowPrice: product.buyNowPrice,
+      currentPrice: product.currentPrice,
+      title: product.title
+    });
+    
     // Verify product is available for purchase
     if (type === 'buy_now') {
-      // Allow products that are active, pending, or don't have status set
-      if (product.status && !['active', 'pending'].includes(product.status)) {
-        return res.status(400).json({ error: 'Product is no longer available' });
+      // Only block if product is explicitly sold or ended
+      const blockedStatuses = ['sold', 'ended', 'cancelled', 'deleted'];
+      if (product.status && blockedStatuses.includes(product.status)) {
+        console.log('Product status check failed:', product.status);
+        return res.status(400).json({ 
+          error: 'Product is no longer available',
+          debug: `Product status: ${product.status}, Cannot purchase if: ${blockedStatuses.join(', ')}`
+        });
       }
       if (!product.buyNowPrice && !product.currentPrice) {
         return res.status(400).json({ error: 'Buy Now not available for this product' });
@@ -96,8 +110,9 @@ router.post('/', authMiddleware, async (req, res) => {
       // Create order
       transaction.set(orderRef, orderData);
       
-      // Update product status if buy now
-      if (type === 'buy_now') {
+      // Don't update product status to 'sold' immediately - wait for payment confirmation
+      // This prevents blocking subsequent purchase attempts if payment fails
+      if (type === 'buy_now' && false) { // Disabled for now
         transaction.update(productDoc.ref, {
           status: 'sold',
           soldTo: buyerId,

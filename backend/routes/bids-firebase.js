@@ -185,17 +185,32 @@ router.get('/my-bids', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.uid;
     const status = req.query.status || 'active';
+    console.log('Fetching bids for user:', userId, 'with status:', status);
     
-    let query = db.collection('bids')
-      .where('userId', '==', userId);
-    
-    if (status !== 'all') {
-      query = query.where('status', '==', status);
+    let bidsSnapshot;
+    try {
+      let query = db.collection('bids')
+        .where('userId', '==', userId);
+      
+      if (status !== 'all') {
+        query = query.where('status', '==', status);
+      }
+      
+      bidsSnapshot = await query
+        .orderBy('createdAt', 'desc')
+        .get();
+    } catch (queryError) {
+      console.log('Bids query with orderBy failed, trying without:', queryError.message);
+      // Fallback without ordering if index is missing
+      let query = db.collection('bids')
+        .where('userId', '==', userId);
+      
+      if (status !== 'all') {
+        query = query.where('status', '==', status);
+      }
+      
+      bidsSnapshot = await query.get();
     }
-    
-    const bidsSnapshot = await query
-      .orderBy('createdAt', 'desc')
-      .get();
     
     const bids = [];
     for (const doc of bidsSnapshot.docs) {

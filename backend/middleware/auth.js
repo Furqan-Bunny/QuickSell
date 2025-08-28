@@ -35,19 +35,27 @@ const authMiddleware = async (req, res, next) => {
       // If user doesn't exist in Firestore, get from Firebase Auth
       const firebaseUser = await admin.auth().getUser(decodedToken.uid);
       
+      // Check if admin email
+      const isAdmin = firebaseUser.email === 'admin@quicksell.com' || 
+                      firebaseUser.email === 'admin@example.com' ||
+                      decodedToken.admin === true;
+      
       // Create user in Firestore
       const userData = {
         uid: firebaseUser.uid,
         email: firebaseUser.email || '',
         displayName: firebaseUser.displayName || '',
         username: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || '',
-        role: 'user',
+        firstName: firebaseUser.displayName?.split(' ')[0] || '',
+        lastName: firebaseUser.displayName?.split(' ')[1] || '',
+        role: isAdmin ? 'admin' : 'user',
         balance: 0,
         emailVerified: firebaseUser.emailVerified || false,
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       };
       
       await db.collection('users').doc(firebaseUser.uid).set(userData);
+      console.log('Created new user in Firestore:', firebaseUser.uid, 'with role:', userData.role);
       req.user = userData;
     } else {
       const userData = userDoc.data();

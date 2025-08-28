@@ -31,9 +31,14 @@ router.get('/profile', authMiddleware, async (req, res) => {
 router.get('/dashboard', authMiddleware, async (req, res) => {
   try {
     const userId = req.user.uid;
+    console.log('Fetching dashboard for user:', userId);
     
     // Get user data
     const userDoc = await db.collection('users').doc(userId).get();
+    if (!userDoc.exists) {
+      console.log('User not found in Firestore:', userId);
+      return res.status(404).json({ error: 'User not found' });
+    }
     const userData = userDoc.data();
     
     // Get user's active bids
@@ -48,12 +53,21 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
       .where('status', '==', 'sold')
       .get();
     
-    // Get user's orders
-    const ordersSnapshot = await db.collection('orders')
-      .where('buyerId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(5)
-      .get();
+    // Get user's orders - handle potential missing index
+    let ordersSnapshot;
+    try {
+      ordersSnapshot = await db.collection('orders')
+        .where('buyerId', '==', userId)
+        .orderBy('createdAt', 'desc')
+        .limit(5)
+        .get();
+    } catch (orderError) {
+      console.log('Order query failed, trying without orderBy:', orderError.message);
+      // Fallback without ordering if index is missing
+      ordersSnapshot = await db.collection('orders')
+        .where('buyerId', '==', userId)
+        .limit(5)
+        .get();
     
     // Get user's watchlist
     const watchlistSnapshot = await db.collection('watchlist')
@@ -63,12 +77,22 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
     // Process recent activity
     const recentActivity = [];
     
-    // Add recent bids to activity
-    const recentBidsSnapshot = await db.collection('bids')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .limit(10)
-      .get();
+    // Add recent bids to activity - handle potential missing index
+    let recentBidsSnapshot;
+    try {
+      recentBidsSnapshot = await db.collection('bids')
+        .where('userId', '==', userId)
+        .orderBy('createdAt', 'desc')
+        .limit(10)
+        .get();
+    } catch (bidError) {
+      console.log('Bids query failed, trying without orderBy:', bidError.message);
+      // Fallback without ordering if index is missing
+      recentBidsSnapshot = await db.collection('bids')
+        .where('userId', '==', userId)
+        .limit(10)
+        .get();
+    }
     
     for (const doc of recentBidsSnapshot.docs) {
       const bid = doc.data();
@@ -104,12 +128,22 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
       ).length
     };
     
-    // Get recent products for recommendations
-    const recommendedProducts = await db.collection('products')
-      .where('status', '==', 'active')
-      .orderBy('views', 'desc')
-      .limit(4)
-      .get();
+    // Get recent products for recommendations - handle potential missing index
+    let recommendedProducts;
+    try {
+      recommendedProducts = await db.collection('products')
+        .where('status', '==', 'active')
+        .orderBy('views', 'desc')
+        .limit(4)
+        .get();
+    } catch (productError) {
+      console.log('Products query failed, trying without orderBy:', productError.message);
+      // Fallback without ordering if index is missing
+      recommendedProducts = await db.collection('products')
+        .where('status', '==', 'active')
+        .limit(4)
+        .get();
+    }
     
     const recommendations = recommendedProducts.docs.map(doc => ({
       id: doc.id,

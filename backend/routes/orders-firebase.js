@@ -413,7 +413,233 @@ router.post('/:orderId/verify-payment', authMiddleware, async (req, res) => {
   }
 });
 
-// Cancel order
+// Get all orders (admin only)
+router.get('/admin/all', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { status, paymentStatus, limit = 50, startAfter } = req.query;
+    
+    // Check if user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    
+    if (userData?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+    
+    let query = db.collection('orders');
+    
+    // Apply filters
+    if (status && status !== 'all') {
+      query = query.where('status', '==', status);
+    }
+    
+    if (paymentStatus && paymentStatus !== 'all') {
+      query = query.where('paymentStatus', '==', paymentStatus);
+    }
+    
+    // Order by creation date
+    query = query.orderBy('createdAt', 'desc').limit(parseInt(limit));
+    
+    // Pagination
+    if (startAfter) {
+      const startDoc = await db.collection('orders').doc(startAfter).get();
+      if (startDoc.exists) {
+        query = query.startAfter(startDoc);
+      }
+    }
+    
+    const ordersSnapshot = await query.get();
+    
+    const orders = ordersSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Get order statistics
+    const statsSnapshot = await db.collection('orders').get();
+    const allOrders = statsSnapshot.docs.map(doc => doc.data());
+    
+    const stats = {
+      total: allOrders.length,
+      pending: allOrders.filter(o => o.status === 'pending_payment').length,
+      processing: allOrders.filter(o => o.status === 'processing').length,
+      shipped: allOrders.filter(o => o.status === 'shipped').length,
+      delivered: allOrders.filter(o => o.status === 'delivered').length,
+      cancelled: allOrders.filter(o => o.status === 'cancelled').length,
+      totalRevenue: allOrders.reduce((sum, o) => sum + (o.amount || 0), 0),
+      totalCommission: allOrders.reduce((sum, o) => sum + ((o.amount || 0) * 0.05), 0) // 5% commission
+    };
+    
+    res.json({
+      success: true,
+      data: orders,
+      stats,
+      hasMore: orders.length === parseInt(limit)
+    });
+    
+  } catch (error) {
+    console.error('Error fetching all orders:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch orders' 
+    });
+  }
+});
+
+// Update order details (admin only)
+router.put('/admin/:orderId', authMiddleware, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.uid;
+    const { 
+      status, 
+      trackingNumber, 
+      shippingCarrier, 
+      notes,
+      expectedDelivery 
+    } = req.body;
+    
+    // Check if user is admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    
+    if (userData?.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+    
+    // Get the order
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+    
+    if (!orderDoc.exists) {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found'
+      });
+    }
+    
+    const order = orderDoc.data();
+    
+    // Build update object
+    const updateData = {
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: userId
+    };
+    
+    if (status !== undefined) {
+      updateData.status = status;
+      
+      // Send notification to buyer
+      const notificationRef = db.collection('notifications').doc();
+      await notificationRef.set({
+        id: notificationRef.id,
+        userId: order.buyerId,
+        type: 'order_update',
+        title: 'Order Status Updated',
+        message: `Your order #${orderId.slice(-8)} status changed to ${status}`,
+        orderId,
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    
+    if (trackingNumber !== undefined) updateData.trackingNumber = trackingNumber;
+    if (shippingCarrier !== undefined) updateData.shippingCarrier = shippingCarrier;
+    if (notes !== undefined) updateData.notes = notes;
+    if (expectedDelivery !== undefined) {
+      updateData.expectedDelivery = admin.firestore.Timestamp.fromDate(new Date(expectedDelivery));
+    }
+    
+    // Update the order
+    await db.collection('orders').doc(orderId).update(updateData);
+    
+    res.json({
+      success: true,
+      message: 'Order updated successfully',
+      data: {
+        id: orderId,
+        ...updateData
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error updating order:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update order'
+    });
+  }
+});
+
+// Cancel order (PUT endpoint for frontend compatibility)
+router.put('/:orderId/cancel', authMiddleware, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const userId = req.user.uid;
+    
+    const orderDoc = await db.collection('orders').doc(orderId).get();
+    
+    if (!orderDoc.exists) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    
+    const order = orderDoc.data();
+    
+    // Check if user is buyer or admin
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    
+    if (order.buyerId !== userId && userData?.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Check if order can be cancelled
+    if (order.status === 'shipped' || order.status === 'delivered' || order.status === 'cancelled') {
+      return res.status(400).json({ error: 'Cannot cancel this order' });
+    }
+    
+    // Update order status
+    await orderDoc.ref.update({
+      status: 'cancelled',
+      cancelledBy: userId,
+      cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+      cancellationReason: req.body.reason || 'Cancelled by user',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // If product was marked as sold, revert it
+    if (order.type === 'buy_now') {
+      const productDoc = await db.collection('products').doc(order.productId).get();
+      if (productDoc.exists && productDoc.data().status === 'sold') {
+        await productDoc.ref.update({
+          status: 'active',
+          soldTo: null,
+          soldAt: null,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: 'Order cancelled successfully'
+    });
+  } catch (error) {
+    console.error('Error cancelling order:', error);
+    res.status(500).json({
+      error: 'Failed to cancel order',
+      details: error.message
+    });
+  }
+});
+
+// Cancel order (DELETE endpoint - kept for backward compatibility)
 router.delete('/:orderId', authMiddleware, async (req, res) => {
   try {
     const { orderId } = req.params;

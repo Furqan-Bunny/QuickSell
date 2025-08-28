@@ -206,11 +206,10 @@ async function getTopSellers() {
   return sellers;
 }
 
-// Get all users with pagination
+// Get all users (no pagination for simplicity in admin panel)
 router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { page = 1, limit = 20, role, search } = req.query;
-    const offset = (page - 1) * limit;
+    const { role, search } = req.query;
     
     let query = db.collection('users');
     
@@ -221,7 +220,9 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
     const snapshot = await query.get();
     let users = snapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      uid: doc.id, // Add uid field for compatibility
+      ...doc.data(),
+      name: doc.data().displayName || `${doc.data().firstName || ''} ${doc.data().lastName || ''}`.trim() || 'Unknown User'
     }));
     
     // Apply search filter
@@ -229,8 +230,26 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
       const searchLower = search.toLowerCase();
       users = users.filter(u => 
         u.email?.toLowerCase().includes(searchLower) ||
-        `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchLower)
+        u.name?.toLowerCase().includes(searchLower)
       );
+    }
+    
+    // Add order statistics for each user
+    for (let user of users) {
+      const ordersSnapshot = await db.collection('orders')
+        .where('buyerId', '==', user.id)
+        .get();
+      
+      user.totalOrders = ordersSnapshot.size;
+      user.totalSpent = ordersSnapshot.docs.reduce((sum, doc) => {
+        const order = doc.data();
+        return sum + (order.totalAmount || 0);
+      }, 0);
+      
+      // Set default status if not present
+      if (!user.status) {
+        user.status = user.suspended ? 'suspended' : 'active';
+      }
     }
     
     // Sort by creation date
@@ -240,17 +259,9 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
       return bTime - aTime;
     });
     
-    // Paginate
-    const paginatedUsers = users.slice(offset, offset + parseInt(limit));
-    
     res.json({
       success: true,
-      data: {
-        users: paginatedUsers,
-        total: users.length,
-        page: parseInt(page),
-        totalPages: Math.ceil(users.length / limit)
-      }
+      data: users
     });
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -258,16 +269,64 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-// Update user role or status
+// Update user role specifically
+router.put('/users/:userId/role', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { role } = req.body;
+    
+    if (!role || !['user', 'seller', 'admin'].includes(role)) {
+      return res.status(400).json({ error: 'Invalid role' });
+    }
+    
+    // Don't allow removing the last admin
+    if (role !== 'admin') {
+      const userDoc = await db.collection('users').doc(userId).get();
+      if (userDoc.exists && userDoc.data().role === 'admin') {
+        // Check if there are other admins
+        const adminsSnapshot = await db.collection('users')
+          .where('role', '==', 'admin')
+          .get();
+        if (adminsSnapshot.size === 1) {
+          return res.status(400).json({ error: 'Cannot remove the last admin' });
+        }
+      }
+    }
+    
+    await db.collection('users').doc(userId).update({
+      role: role,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: req.user.uid
+    });
+    
+    res.json({
+      success: true,
+      message: 'User role updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    res.status(500).json({ error: 'Failed to update user role' });
+  }
+});
+
+// Update user status and other properties
 router.put('/users/:userId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { userId } = req.params;
-    const { role, verified, suspended } = req.body;
+    const { status, verified, suspended, role } = req.body;
     
     const updates = {};
-    if (role !== undefined) updates.role = role;
+    if (status !== undefined) {
+      updates.status = status;
+      // Map status to suspended field for backward compatibility
+      updates.suspended = status === 'suspended';
+    }
     if (verified !== undefined) updates.verified = verified;
-    if (suspended !== undefined) updates.suspended = suspended;
+    if (suspended !== undefined) {
+      updates.suspended = suspended;
+      updates.status = suspended ? 'suspended' : 'active';
+    }
+    if (role !== undefined) updates.role = role;
     
     updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
     updates.updatedBy = req.user.uid;

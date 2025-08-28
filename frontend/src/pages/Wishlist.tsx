@@ -16,7 +16,7 @@ import {
 import {
   HeartIcon as HeartIconSolid
 } from '@heroicons/react/24/solid'
-import { formatPrice, getTimeRemaining } from '../data/mockData'
+import { formatPrice, getTimeRemaining } from '../utils/formatters'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 

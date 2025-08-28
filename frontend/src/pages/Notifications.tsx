@@ -22,7 +22,7 @@ import {
 import {
   BellIcon as BellIconSolid
 } from '@heroicons/react/24/solid'
-import { formatPrice } from '../data/mockData'
+import { formatPrice } from '../utils/formatters'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 

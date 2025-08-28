@@ -1,5 +1,8 @@
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
+import axios from 'axios'
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -15,15 +18,137 @@ import {
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
 
+interface Category {
+  id: string
+  name: string
+  icon?: string
+  description?: string
+  order?: number
+  productCount?: number
+  createdAt?: any
+  updatedAt?: any
+}
+
 const AdminCategories = () => {
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
+  const [categories, setCategories] = useState<Category[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterStatus, setFilterStatus] = useState('all')
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [showAddModal, setShowAddModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingCategory, setEditingCategory] = useState<any>(null)
+  const [newCategory, setNewCategory] = useState({
+    name: '',
+    icon: '',
+    description: '',
+    order: 0
+  })
 
-  // Mock categories data
+  useEffect(() => {
+    if (!user || user.role !== 'admin') {
+      toast.error('Admin access required')
+      navigate('/')
+      return
+    }
+    fetchCategories()
+  }, [user])
+
+  const fetchCategories = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get('/api/admin/categories')
+      if (response.data.success) {
+        // Fetch product count for each category
+        const categoriesWithCount = await Promise.all(
+          response.data.data.map(async (cat: Category) => {
+            try {
+              const prodResponse = await axios.get(`/api/products?categoryId=${cat.id}`)
+              return {
+                ...cat,
+                productCount: prodResponse.data.data?.length || 0
+              }
+            } catch (error) {
+              return { ...cat, productCount: 0 }
+            }
+          })
+        )
+        setCategories(categoriesWithCount)
+      }
+    } catch (error: any) {
+      console.error('Error fetching categories:', error)
+      toast.error('Failed to fetch categories')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAddCategory = async () => {
+    if (!newCategory.name) {
+      toast.error('Category name is required')
+      return
+    }
+
+    try {
+      const response = await axios.post('/api/admin/categories', newCategory)
+      if (response.data.success) {
+        toast.success('Category added successfully')
+        setShowAddModal(false)
+        setNewCategory({ name: '', icon: '', description: '', order: 0 })
+        fetchCategories()
+      }
+    } catch (error: any) {
+      console.error('Error adding category:', error)
+      toast.error(error.response?.data?.error || 'Failed to add category')
+    }
+  }
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory?.name) {
+      toast.error('Category name is required')
+      return
+    }
+
+    try {
+      const response = await axios.put(`/api/admin/categories/${editingCategory.id}`, {
+        name: editingCategory.name,
+        icon: editingCategory.icon,
+        description: editingCategory.description,
+        order: editingCategory.order || 0
+      })
+      if (response.data.success) {
+        toast.success('Category updated successfully')
+        setShowEditModal(false)
+        setEditingCategory(null)
+        fetchCategories()
+      }
+    } catch (error: any) {
+      console.error('Error updating category:', error)
+      toast.error(error.response?.data?.error || 'Failed to update category')
+    }
+  }
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    if (!confirm('Are you sure you want to delete this category?')) return
+
+    try {
+      const response = await axios.delete(`/api/admin/categories/${categoryId}`)
+      if (response.data.success) {
+        toast.success('Category deleted successfully')
+        fetchCategories()
+      }
+    } catch (error: any) {
+      console.error('Error deleting category:', error)
+      if (error.response?.data?.error?.includes('existing products')) {
+        toast.error('Cannot delete category with existing products')
+      } else {
+        toast.error(error.response?.data?.error || 'Failed to delete category')
+      }
+    }
+  }
+
+  // Mock categories data (removed - using real data now)
   const mockCategories = [
     {
       id: '1',
@@ -182,19 +307,19 @@ const AdminCategories = () => {
     }
   }
 
-  const getStatusBadge = (status: string) => {
-    const badges: any = {
-      active: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircleIcon },
-      inactive: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircleIcon }
-    }
-    return badges[status] || badges.active
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
   }
 
   const stats = {
-    totalCategories: mockCategories.length,
-    activeCategories: mockCategories.filter(c => c.status === 'active').length,
-    totalProducts: mockCategories.reduce((sum, cat) => sum + cat.productCount, 0),
-    inactiveCategories: mockCategories.filter(c => c.status === 'inactive').length
+    totalCategories: categories.length,
+    activeCategories: categories.length, // All categories are active in Phase 1
+    totalProducts: categories.reduce((sum, cat) => sum + (cat.productCount || 0), 0),
+    inactiveCategories: 0 // No inactive categories in Phase 1
   }
 
   return (
@@ -336,7 +461,7 @@ const AdminCategories = () => {
                   />
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Slug</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Identifier</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Products</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Last Updated</th>
@@ -345,9 +470,6 @@ const AdminCategories = () => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredCategories.map((category) => {
-                const statusStyle = getStatusBadge(category.status)
-                const StatusIcon = statusStyle.icon
-                
                 return (
                   <tr key={category.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
@@ -360,37 +482,34 @@ const AdminCategories = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <span className="text-2xl">{category.icon}</span>
+                        <span className="text-2xl">{category.icon || '📦'}</span>
                         <div>
                           <p className="font-medium text-gray-900">{category.name}</p>
-                          <p className="text-sm text-gray-600 line-clamp-1">{category.description}</p>
+                          <p className="text-sm text-gray-600 line-clamp-1">{category.description || 'No description'}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <span className="font-mono text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                        {category.slug}
+                        {category.name?.toLowerCase().replace(/\s+/g, '-')}
                       </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">
-                        <p className="font-medium text-gray-900">{category.productCount}</p>
+                        <p className="font-medium text-gray-900">{category.productCount || 0}</p>
                         <p className="text-xs text-gray-500">total products</p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleToggleStatus(category.id, category.status)}
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium transition-colors ${statusStyle.bg} ${statusStyle.text} hover:opacity-80`}
-                      >
-                        <StatusIcon className="h-3 w-3" />
-                        {category.status}
-                      </button>
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <CheckCircleIcon className="h-3 w-3" />
+                        active
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm text-gray-600">
-                        <p>{category.lastUpdated}</p>
-                        <p className="text-xs text-gray-500">Created: {category.createdDate}</p>
+                        <p>{category.updatedAt ? new Date(category.updatedAt._seconds ? category.updatedAt._seconds * 1000 : category.updatedAt).toLocaleDateString() : 'N/A'}</p>
+                        <p className="text-xs text-gray-500">Order: {category.order || 0}</p>
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -403,20 +522,10 @@ const AdminCategories = () => {
                           <PencilIcon className="h-4 w-4" />
                         </button>
                         <button
-                          onClick={() => handleToggleStatus(category.id, category.status)}
-                          className={`p-1 text-gray-600 hover:${category.status === 'active' ? 'text-red-600' : 'text-green-600'}`}
-                          title={category.status === 'active' ? 'Deactivate' : 'Activate'}
-                        >
-                          {category.status === 'active' ? (
-                            <XCircleIcon className="h-4 w-4" />
-                          ) : (
-                            <CheckCircleIcon className="h-4 w-4" />
-                          )}
-                        </button>
-                        <button
                           onClick={() => handleDeleteCategory(category.id)}
                           className="p-1 text-gray-600 hover:text-red-600"
                           title="Delete Category"
+                          disabled={category.productCount > 0}
                         >
                           <TrashIcon className="h-4 w-4" />
                         </button>
@@ -550,37 +659,33 @@ const AdminCategories = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Icon (Emoji)</label>
                 <input
                   type="text"
+                  value={editingCategory.icon || ''}
+                  onChange={(e) => setEditingCategory({...editingCategory, icon: e.target.value})}
                   className="input-field"
-                  defaultValue={editingCategory.icon}
                   maxLength={2}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                <select className="input-field" defaultValue={editingCategory.status}>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                <input
+                  type="number"
+                  value={editingCategory.order || 0}
+                  onChange={(e) => setEditingCategory({...editingCategory, order: parseInt(e.target.value) || 0})}
+                  className="input-field"
+                />
               </div>
               
               <div className="bg-gray-50 p-3 rounded-lg">
                 <p className="text-sm text-gray-600">
-                  <span className="font-medium">Products in category:</span> {editingCategory.productCount}
-                </p>
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Created:</span> {editingCategory.createdDate}
+                  <span className="font-medium">Products in category:</span> {editingCategory.productCount || 0}
                 </p>
               </div>
             </div>
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => {
-                  toast.success('Category updated successfully')
-                  setShowEditModal(false)
-                  setEditingCategory(null)
-                }}
+                onClick={handleUpdateCategory}
                 className="btn-primary flex-1"
               >
                 Update Category

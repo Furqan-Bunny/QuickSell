@@ -15,7 +15,7 @@ import {
   ClockIcon,
   TagIcon
 } from '@heroicons/react/24/outline'
-import { formatPrice } from '../../data/mockData'
+import { formatPrice } from '../../utils/formatters'
 import toast from 'react-hot-toast'
 
 const AdminProducts = () => {

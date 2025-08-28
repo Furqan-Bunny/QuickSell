@@ -13,7 +13,7 @@ import {
 } from '@heroicons/react/24/outline'
 import ProductCard from '../components/ProductCard'
 import CategoryCard from '../components/CategoryCard'
-import { categories, formatPrice } from '../data/mockData'
+import { formatPrice } from '../utils/formatters'
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState<any[]>([])
@@ -224,26 +224,6 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Categories */}
-      <section>
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Shop by Category</h2>
-          <p className="text-gray-600">Find exactly what you're looking for</p>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          {categories.slice(0, 6).map((category) => (
-            <motion.div
-              key={category.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3 }}
-            >
-              <CategoryCard category={category} />
-            </motion.div>
-          ))}
-        </div>
-      </section>
 
       {/* Registration CTA */}
       <section className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-3xl p-8 md:p-12">

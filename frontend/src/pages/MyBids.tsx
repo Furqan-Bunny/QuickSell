@@ -10,7 +10,7 @@ import {
   ChevronDownIcon,
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
-import { formatPrice, getTimeRemaining } from '../data/mockData'
+import { formatPrice, getTimeRemaining } from '../utils/formatters'
 
 const MyBids = () => {
   const [activeTab, setActiveTab] = useState('active')

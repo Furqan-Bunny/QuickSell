@@ -16,7 +16,7 @@ import {
   ChartBarIcon,
   ShoppingBagIcon
 } from '@heroicons/react/24/outline'
-import { formatPrice, getTimeRemaining } from '../data/mockData'
+import { formatPrice, getTimeRemaining } from '../utils/formatters'
 import toast from 'react-hot-toast'
 
 interface Product {

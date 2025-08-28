@@ -16,8 +16,17 @@ import {
   ClockIcon
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../store/authStore'
-import { categories } from '../data/mockData'
 import toast from 'react-hot-toast'
+
+// Temporary hardcoded categories - TODO: Load from API
+const categories = [
+  { id: '1', name: 'Electronics' },
+  { id: '2', name: 'Fashion' },
+  { id: '3', name: 'Home & Garden' },
+  { id: '4', name: 'Sports' },
+  { id: '5', name: 'Collectibles' },
+  { id: '6', name: 'Other' }
+]
 
 interface AuctionFormData {
   title: string

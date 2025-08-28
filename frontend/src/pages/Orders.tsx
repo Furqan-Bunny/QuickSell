@@ -13,7 +13,7 @@ import {
   EyeIcon,
   ChatBubbleLeftEllipsisIcon
 } from '@heroicons/react/24/outline'
-import { formatPrice } from '../data/mockData'
+import { formatPrice } from '../utils/formatters'
 import { useAuthStore } from '../store/authStore'
 
 interface Order {

@@ -82,9 +82,40 @@ const AdminDashboard = () => {
       const response = await axios.get('/api/admin/dashboard')
       if (response.data.success) {
         const data = response.data.data
-        setStats(data.stats)
-        setRecentActivity(data.recentActivity || [])
-        setPendingProducts(data.pendingProducts || [])
+        
+        // Map backend stats structure to frontend structure
+        const mappedStats: DashboardStats = {
+          users: {
+            total: data.stats?.users?.total || 0,
+            active: data.stats?.users?.activeToday || 0,
+            sellers: data.stats?.users?.sellers || 0,
+            new: data.stats?.users?.buyers || 0,
+            growth: 0 // Calculate if needed
+          },
+          products: {
+            total: data.stats?.products?.total || 0,
+            active: data.stats?.products?.active || 0,
+            pending: data.stats?.products?.ended || 0,
+            sold: data.stats?.products?.sold || 0,
+            growth: 0
+          },
+          revenue: {
+            total: data.stats?.orders?.totalRevenue || 0,
+            monthly: data.stats?.orders?.totalRevenue || 0, // Would need date filtering
+            fees: data.stats?.orders?.platformFees || 0,
+            growth: 0
+          },
+          activity: {
+            totalBids: data.stats?.bids?.total || 0,
+            totalOrders: data.stats?.orders?.total || 0,
+            avgBidAmount: data.stats?.bids?.totalValue / (data.stats?.bids?.total || 1) || 0,
+            conversionRate: data.stats?.orders?.total / (data.stats?.bids?.total || 1) * 100 || 0
+          }
+        }
+        
+        setStats(mappedStats)
+        setRecentActivity(data.recentActivities || [])
+        setPendingProducts(data.topProducts || []) // Using top products for now
         setTopSellers(data.topSellers || [])
       }
     } catch (error) {

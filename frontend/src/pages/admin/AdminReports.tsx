@@ -11,7 +11,7 @@ import {
   PrinterIcon
 } from '@heroicons/react/24/outline'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { formatPrice } from '../../data/mockData'
+import { formatPrice } from '../../utils/formatters'
 
 const AdminReports = () => {
   const [dateRange, setDateRange] = useState('month')

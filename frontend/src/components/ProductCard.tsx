@@ -4,7 +4,7 @@ import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
 import { useState } from 'react'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
-import { formatPrice, getTimeRemaining } from '../data/mockData'
+import { formatPrice, getTimeRemaining } from '../utils/formatters'
 
 interface ProductCardProps {
   product: any

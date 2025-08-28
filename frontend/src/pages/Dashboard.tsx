@@ -14,7 +14,7 @@ import {
   BellIcon,
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
-import { formatPrice, getTimeRemaining } from '../data/mockData'
+import { formatPrice, getTimeRemaining } from '../utils/formatters'
 import ProductCard from '../components/ProductCard'
 
 const Dashboard = () => {

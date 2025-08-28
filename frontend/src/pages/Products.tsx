@@ -12,7 +12,7 @@ import {
   ChevronRightIcon
 } from '@heroicons/react/24/outline'
 import ProductCard from '../components/ProductCard'
-import { formatPrice } from '../data/mockData'
+import { formatPrice } from '../utils/formatters'
 
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams()

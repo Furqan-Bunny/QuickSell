@@ -1,5 +1,8 @@
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
+import axios from 'axios'
 import {
   CogIcon,
   CurrencyDollarIcon,
@@ -15,7 +18,11 @@ import {
 import toast from 'react-hot-toast'
 
 const AdminSettings = () => {
+  const navigate = useNavigate()
+  const { user } = useAuthStore()
   const [activeTab, setActiveTab] = useState('general')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   
   // Settings state
@@ -23,7 +30,16 @@ const AdminSettings = () => {
     platformName: 'Quicksell',
     platformUrl: 'https://quicksell.co.za',
     supportEmail: 'support@quicksell.co.za',
-    commissionRate: 3,
+    platformFeePercentage: 10,
+    minBidIncrement: 100,
+    maxAuctionDuration: 30,
+    emailNotifications: true,
+    autoEndAuctions: true,
+    requireVerification: false,
+    maintenanceMode: false,
+    maintenanceMessage: 'The platform is currently under maintenance. Please check back later.',
+    // Additional settings for UI compatibility
+    commissionRate: 10,
     minBidAmount: 10,
     maxBidAmount: 1000000,
     auctionExtensionTime: 5,
@@ -34,8 +50,68 @@ const AdminSettings = () => {
     sessionTimeout: 30
   })
 
-  const handleSaveSettings = () => {
-    toast.success('Settings saved successfully')
+  useEffect(() => {
+    if (!user || user.role !== 'admin') {
+      toast.error('Admin access required')
+      navigate('/')
+      return
+    }
+    fetchSettings()
+  }, [user])
+
+  const fetchSettings = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get('/api/admin/settings')
+      if (response.data.success) {
+        const data = response.data.data
+        setSettings(prev => ({
+          ...prev,
+          ...data,
+          // Map backend fields to frontend fields
+          commissionRate: data.platformFeePercentage || 10,
+          minBidAmount: data.minBidIncrement || 100,
+          emailNotifications: data.emailNotifications !== false,
+          autoApproveProducts: !data.requireVerification,
+          requireEmailVerification: data.requireVerification || false
+        }))
+        setMaintenanceMode(data.maintenanceMode || false)
+      }
+    } catch (error: any) {
+      console.error('Error fetching settings:', error)
+      toast.error('Failed to fetch settings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSaveSettings = async () => {
+    try {
+      setSaving(true)
+      const dataToSave = {
+        platformName: settings.platformName,
+        platformUrl: settings.platformUrl,
+        supportEmail: settings.supportEmail,
+        platformFeePercentage: settings.commissionRate,
+        minBidIncrement: settings.minBidAmount,
+        maxAuctionDuration: settings.maxAuctionDuration,
+        emailNotifications: settings.emailNotifications,
+        autoEndAuctions: settings.autoEndAuctions,
+        requireVerification: settings.requireEmailVerification,
+        maintenanceMode: maintenanceMode,
+        maintenanceMessage: settings.maintenanceMessage
+      }
+      
+      const response = await axios.put('/api/admin/settings', dataToSave)
+      if (response.data.success) {
+        toast.success('Settings saved successfully')
+      }
+    } catch (error: any) {
+      console.error('Error saving settings:', error)
+      toast.error('Failed to save settings')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleTestEmail = () => {
@@ -52,6 +128,14 @@ const AdminSettings = () => {
       setMaintenanceMode(false)
       toast.success('Maintenance mode disabled')
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
   }
 
   return (
@@ -425,8 +509,12 @@ const AdminSettings = () => {
 
       {/* Save Button */}
       <div className="flex justify-end">
-        <button onClick={handleSaveSettings} className="btn-primary">
-          Save Settings
+        <button 
+          onClick={handleSaveSettings} 
+          className="btn-primary"
+          disabled={saving}
+        >
+          {saving ? 'Saving...' : 'Save Settings'}
         </button>
       </div>
     </motion.div>

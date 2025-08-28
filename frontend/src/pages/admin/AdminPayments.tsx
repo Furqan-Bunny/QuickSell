@@ -12,7 +12,7 @@ import {
   FunnelIcon,
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
-import { formatPrice } from '../../data/mockData'
+import { formatPrice } from '../../utils/formatters'
 
 const AdminPayments = () => {
   const [activeTab, setActiveTab] = useState('transactions')

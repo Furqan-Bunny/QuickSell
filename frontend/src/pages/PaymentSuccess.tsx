@@ -1,6 +1,6 @@
-import { useEffect } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import { CheckCircleIcon } from '@heroicons/react/24/outline'
+import { useEffect, useState } from 'react'
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom'
+import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline'
 import { motion } from 'framer-motion'
 import axios from 'axios'
 import toast from 'react-hot-toast'
@@ -8,32 +8,58 @@ import toast from 'react-hot-toast'
 const PaymentSuccess = () => {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
+  const location = useLocation()
+  const [verifying, setVerifying] = useState(true)
+  const [verified, setVerified] = useState(false)
   
   useEffect(() => {
     const verifyPayment = async () => {
+      // Get payment details from URL params or location state
+      const orderId = searchParams.get('order_id') || location.state?.orderId
       const transactionId = searchParams.get('transaction_id')
       const txRef = searchParams.get('tx_ref')
+      const paymentMethod = searchParams.get('method') || location.state?.paymentMethod
+      const paymentId = searchParams.get('payment_id')
       
-      if (transactionId || txRef) {
-        try {
-          const response = await axios.post('/api/payments/flutterwave/verify', {
-            transactionId: transactionId || txRef
-          })
-          
-          if (response.data.status === 'success') {
-            toast.success('Payment successful! Your order has been confirmed.')
-          } else {
-            toast.error('Payment verification failed. Please contact support.')
-          }
-        } catch (error) {
-          console.error('Payment verification error:', error)
-          toast.error('Failed to verify payment. Please contact support.')
+      if (!orderId) {
+        toast.error('Order ID not found')
+        setVerifying(false)
+        return
+      }
+      
+      try {
+        // Verify payment based on method
+        let verificationData: any = {
+          paymentMethod: paymentMethod || 'flutterwave'
         }
+        
+        if (paymentMethod === 'flutterwave' || !paymentMethod) {
+          verificationData.transactionId = transactionId || txRef
+        } else if (paymentMethod === 'payfast') {
+          verificationData.paymentReference = paymentId
+        } else if (paymentMethod === 'wallet') {
+          // Wallet payments are already verified
+          verificationData.walletPayment = true
+        }
+        
+        const response = await axios.post(`/api/payments/verification/verify/${orderId}`, verificationData)
+        
+        if (response.data.success) {
+          toast.success('Payment successful! Your order has been confirmed.')
+          setVerified(true)
+        } else {
+          toast.error('Payment verification failed. Please contact support.')
+        }
+      } catch (error: any) {
+        console.error('Payment verification error:', error)
+        toast.error(error.response?.data?.error || 'Failed to verify payment. Please contact support.')
+      } finally {
+        setVerifying(false)
       }
     }
     
     verifyPayment()
-  }, [searchParams])
+  }, [searchParams, location.state])
   
   return (
     <motion.div
@@ -43,22 +69,42 @@ const PaymentSuccess = () => {
       className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8"
     >
       <div className="max-w-md w-full space-y-8 text-center">
-        <div>
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring' }}
-            className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-green-100"
-          >
-            <CheckCircleIcon className="h-16 w-16 text-green-600" />
-          </motion.div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Payment Successful!
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Your payment has been processed successfully.
-          </p>
-        </div>
+        {verifying ? (
+          <div>
+            <div className="animate-spin rounded-full h-24 w-24 border-b-2 border-primary mx-auto" />
+            <h2 className="mt-6 text-2xl font-bold text-gray-900">
+              Verifying Payment...
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              Please wait while we confirm your payment.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2, type: 'spring' }}
+              className={`mx-auto flex items-center justify-center h-24 w-24 rounded-full ${
+                verified ? 'bg-green-100' : 'bg-red-100'
+              }`}
+            >
+              {verified ? (
+                <CheckCircleIcon className="h-16 w-16 text-green-600" />
+              ) : (
+                <XCircleIcon className="h-16 w-16 text-red-600" />
+              )}
+            </motion.div>
+            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+              {verified ? 'Payment Successful!' : 'Payment Failed'}
+            </h2>
+            <p className="mt-2 text-sm text-gray-600">
+              {verified 
+                ? 'Your payment has been processed successfully.'
+                : 'There was an issue with your payment. Please try again or contact support.'}
+            </p>
+          </div>
+        )}
         
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-lg p-6">

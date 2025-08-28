@@ -179,7 +179,12 @@ const Checkout = () => {
 
         if (walletResponse.data.success) {
           toast.success('Payment successful!')
-          navigate('/payment/success', { state: { orderId } })
+          navigate('/payment/success', { 
+            state: { 
+              orderId, 
+              paymentMethod: 'wallet' 
+            } 
+          })
         } else {
           throw new Error('Wallet payment failed')
         }
@@ -217,8 +222,8 @@ const Checkout = () => {
           productId: checkoutItem.productId,
           amount: checkoutItem.price,
           currency: 'ZAR',
-          redirectUrl: `${window.location.origin}/payment/success?order=${orderId}`,
-          cancelUrl: `${window.location.origin}/payment/cancel?order=${orderId}`,
+          redirectUrl: `${window.location.origin}/payment/success?order_id=${orderId}&method=flutterwave`,
+          cancelUrl: `${window.location.origin}/payment/cancel?order_id=${orderId}`,
           customerDetails: {
             email: shippingInfo.email,
             name: shippingInfo.fullName,

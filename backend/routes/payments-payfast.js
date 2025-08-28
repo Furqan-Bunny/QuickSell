@@ -80,8 +80,8 @@ router.post('/initialize', authMiddleware, async (req, res) => {
     const payfastData = {
       merchant_id: config.merchantId,
       merchant_key: config.merchantKey,
-      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/success?order=${orderId}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/cancel?order=${orderId}`,
+      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/success?order_id=${orderId}&method=payfast&payment_id=${paymentId}`,
+      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/cancel?order_id=${orderId}`,
       notify_url: `${process.env.SERVER_URL || 'http://localhost:5000'}/api/payments/payfast/notify`,
       name_first: userData.name?.split(' ')[0] || '',
       name_last: userData.name?.split(' ')[1] || '',

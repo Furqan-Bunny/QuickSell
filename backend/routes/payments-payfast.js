@@ -43,11 +43,13 @@ const generateSignature = (data, passphrase = null) => {
   // Remove last ampersand
   let getString = pfOutput.slice(0, -1);
   
-  // Add passphrase if provided
-  if (passphrase) {
+  // Add passphrase if provided AND not empty
+  if (passphrase && passphrase.length > 0) {
     getString += `&passphrase=${encodeURIComponent(passphrase.trim()).replace(/%20/g, '+')}`;
   }
 
+  console.log('Signature string (first 100 chars):', getString.substring(0, 100));
+  
   // Create MD5 hash
   return crypto.createHash('md5').update(getString).digest('hex');
 };
@@ -128,12 +130,15 @@ router.post('/initialize', authMiddleware, async (req, res) => {
     
     console.log('PayFast data before signature:', Object.keys(payfastData));
     console.log('PayFast mode:', config.merchantId === '10000100' ? 'SANDBOX/TESTING' : 'PRODUCTION');
+    console.log('PayFast URL:', config.url);
 
     // Generate signature - use config passphrase (empty for sandbox)
     const signature = generateSignature(payfastData, config.passphrase);
     payfastData.signature = signature;
     
-    console.log('PayFast signature generated');
+    console.log('PayFast signature generated:', signature);
+    console.log('PayFast merchant_id:', payfastData.merchant_id);
+    console.log('PayFast amount:', payfastData.amount);
 
     // Save payment record to Firebase
     await db.collection('payments').doc(paymentId).set({

@@ -203,17 +203,25 @@ const Checkout = () => {
           const form = document.createElement('form')
           form.method = 'POST'
           form.action = response.data.data.paymentUrl
+          form.target = '_self' // Submit in same window
+          
+          // Log the data for debugging
+          console.log('PayFast submission URL:', response.data.data.paymentUrl)
+          console.log('PayFast data:', response.data.data.paymentData)
           
           Object.keys(response.data.data.paymentData).forEach(key => {
             const input = document.createElement('input')
             input.type = 'hidden'
             input.name = key
-            input.value = response.data.data.paymentData[key]
+            // Convert to string explicitly
+            input.value = String(response.data.data.paymentData[key] || '')
             form.appendChild(input)
           })
           
           document.body.appendChild(form)
           form.submit()
+        } else {
+          toast.error('Failed to initialize PayFast payment')
         }
 
       } else if (paymentMethod === 'flutterwave') {

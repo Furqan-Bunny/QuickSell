@@ -39,12 +39,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
 
   initAuth: () => {
+    console.log('Initializing auth...')
+    set({ isLoading: true })
+    
     // Listen to Firebase auth state changes
     firebaseAuth.onAuthStateChanged(async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'No user')
+      
       if (firebaseUser) {
         try {
           const token = await firebaseUser.getIdToken(true) // Force refresh token
+          console.log('Got token for user:', firebaseUser.email)
+          
           const userProfile = await firebaseAuth.getCurrentUser()
+          console.log('User profile from Firestore:', userProfile)
           
           if (userProfile) {
             const formattedUser: User = {
@@ -75,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               }
             }, 50 * 60 * 1000)
             
+            console.log('Auth initialized successfully for:', formattedUser.email, 'Role:', formattedUser.role)
             set({
               user: formattedUser,
               token,
@@ -82,6 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
               isLoading: false
             })
           } else {
+            console.log('No user profile found in Firestore')
             set({ isLoading: false })
           }
         } catch (error) {
@@ -90,6 +100,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
       } else {
         // No user logged in
+        console.log('No user logged in, clearing auth state')
         localStorage.removeItem('token')
         localStorage.removeItem('user')
         delete axios.defaults.headers.common['Authorization']
@@ -102,6 +113,15 @@ export const useAuthStore = create<AuthState>((set) => ({
         })
       }
     })
+    
+    // Set a timeout to prevent infinite loading
+    setTimeout(() => {
+      const state = useAuthStore.getState()
+      if (state.isLoading) {
+        console.log('Auth initialization timeout - setting loading to false')
+        set({ isLoading: false })
+      }
+    }, 5000)
   },
 
   login: async (email: string, password: string) => {

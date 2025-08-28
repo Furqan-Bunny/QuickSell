@@ -7,12 +7,18 @@ const { db } = require('../config/firebase');
 
 // PayFast Configuration
 const getPayfastConfig = () => {
-  const useSandbox = process.env.PAYFAST_USE_SANDBOX === 'true';
+  // Default to sandbox mode unless explicitly set to false
+  const useSandbox = process.env.PAYFAST_USE_SANDBOX !== 'false';
+  
+  // PayFast sandbox test credentials
+  const sandboxMerchantId = '10000100';
+  const sandboxMerchantKey = '46f0cd694581a';
+  const sandboxPassphrase = ''; // No passphrase for sandbox
   
   return {
-    merchantId: useSandbox ? process.env.PAYFAST_SANDBOX_MERCHANT_ID : process.env.PAYFAST_MERCHANT_ID,
-    merchantKey: useSandbox ? process.env.PAYFAST_SANDBOX_MERCHANT_KEY : process.env.PAYFAST_MERCHANT_KEY,
-    passphrase: useSandbox ? process.env.PAYFAST_SANDBOX_PASSPHRASE : process.env.PAYFAST_PASSPHRASE,
+    merchantId: useSandbox ? sandboxMerchantId : (process.env.PAYFAST_MERCHANT_ID || '24863159'),
+    merchantKey: useSandbox ? sandboxMerchantKey : (process.env.PAYFAST_MERCHANT_KEY || 'szqalyn9ghk4k'),
+    passphrase: useSandbox ? sandboxPassphrase : (process.env.PAYFAST_PASSPHRASE || 'Quicksell-Minzolor1'),
     url: useSandbox ? 'https://sandbox.payfast.co.za/eng/process' : 'https://www.payfast.co.za/eng/process',
     validHosts: useSandbox ? 
       ['sandbox.payfast.co.za', 'w1w.payfast.co.za', 'w2w.payfast.co.za'] :
@@ -91,9 +97,9 @@ router.post('/initialize', authMiddleware, async (req, res) => {
     // Build PayFast data - ensure all values are defined
     const payfastData = {};
     
-    // Required fields - use fallback values if config is missing
-    payfastData.merchant_id = config.merchantId || process.env.PAYFAST_MERCHANT_ID || '24863159';
-    payfastData.merchant_key = config.merchantKey || process.env.PAYFAST_MERCHANT_KEY || 'szqalyn9ghk4k';
+    // Required fields - use config values (already has fallbacks)
+    payfastData.merchant_id = config.merchantId;
+    payfastData.merchant_key = config.merchantKey;
     payfastData.return_url = `${process.env.FRONTEND_URL || 'https://quicksell-80aad.web.app'}/payment/success?order_id=${orderId}&method=payfast&payment_id=${paymentId}`;
     payfastData.cancel_url = `${process.env.FRONTEND_URL || 'https://quicksell-80aad.web.app'}/payment/cancel?order_id=${orderId}`;
     payfastData.notify_url = `${process.env.SERVER_URL || 'https://quicksell-1-4020.onrender.com'}/api/payments/payfast/notify`;
@@ -121,10 +127,10 @@ router.post('/initialize', authMiddleware, async (req, res) => {
     if (userData.email) payfastData.confirmation_address = userData.email;
     
     console.log('PayFast data before signature:', Object.keys(payfastData));
+    console.log('PayFast mode:', config.merchantId === '10000100' ? 'SANDBOX/TESTING' : 'PRODUCTION');
 
-    // Generate signature - use passphrase if available
-    const passphrase = config.passphrase || process.env.PAYFAST_PASSPHRASE || 'Quicksell-Minzolor1';
-    const signature = generateSignature(payfastData, passphrase);
+    // Generate signature - use config passphrase (empty for sandbox)
+    const signature = generateSignature(payfastData, config.passphrase);
     payfastData.signature = signature;
     
     console.log('PayFast signature generated');

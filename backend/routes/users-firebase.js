@@ -420,4 +420,197 @@ router.get('/seller-dashboard', authMiddleware, async (req, res) => {
   }
 });
 
+// Update user profile
+router.put('/profile', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const updates = req.body;
+    
+    // Remove sensitive fields that shouldn't be updated directly
+    delete updates.uid;
+    delete updates.role;
+    delete updates.balance;
+    delete updates.emailVerified;
+    delete updates.createdAt;
+    
+    // Validate phone number format if provided
+    if (updates.phone && !/^\+?[0-9\s-]+$/.test(updates.phone)) {
+      return res.status(400).json({ error: 'Invalid phone number format' });
+    }
+    
+    // Update user document
+    await db.collection('users').doc(userId).update({
+      ...updates,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    // Get updated user data
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: {
+        id: userId,
+        ...userData
+      }
+    });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Upload user avatar
+router.post('/avatar', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { avatar } = req.body; // Base64 encoded image
+    
+    if (!avatar) {
+      return res.status(400).json({ error: 'No avatar image provided' });
+    }
+    
+    // Convert base64 to buffer
+    const base64Data = avatar.replace(/^data:image\/\w+;base64,/, '');
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    // Upload to Firebase Storage
+    const bucket = admin.storage().bucket();
+    const fileName = `avatars/${userId}-${Date.now()}.png`;
+    const file = bucket.file(fileName);
+    
+    await file.save(buffer, {
+      metadata: {
+        contentType: 'image/png'
+      }
+    });
+    
+    // Make file public
+    await file.makePublic();
+    
+    // Get public URL
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    
+    // Update user document
+    await db.collection('users').doc(userId).update({
+      avatar: publicUrl,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    res.json({
+      success: true,
+      message: 'Avatar uploaded successfully',
+      data: {
+        avatar: publicUrl
+      }
+    });
+  } catch (error) {
+    console.error('Error uploading avatar:', error);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  }
+});
+
+// Update notification preferences
+router.put('/notifications', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { preferences } = req.body;
+    
+    await db.collection('users').doc(userId).update({
+      'preferences.notifications': preferences,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    res.json({
+      success: true,
+      message: 'Notification preferences updated'
+    });
+  } catch (error) {
+    console.error('Error updating notifications:', error);
+    res.status(500).json({ error: 'Failed to update notification preferences' });
+  }
+});
+
+// Get user activity (bids, wins, watchlist)
+router.get('/activity', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    
+    // Get user's bids
+    let bidsSnapshot;
+    try {
+      bidsSnapshot = await db.collection('bids')
+        .where('userId', '==', userId)
+        .orderBy('createdAt', 'desc')
+        .limit(10)
+        .get();
+    } catch (error) {
+      // Fallback without orderBy if index is missing
+      bidsSnapshot = await db.collection('bids')
+        .where('userId', '==', userId)
+        .limit(10)
+        .get();
+    }
+    
+    const bids = [];
+    for (const doc of bidsSnapshot.docs) {
+      const bid = { id: doc.id, ...doc.data() };
+      // Get product info
+      const productDoc = await db.collection('products').doc(bid.productId).get();
+      if (productDoc.exists) {
+        bid.product = {
+          id: productDoc.id,
+          title: productDoc.data().title,
+          image: productDoc.data().images?.[0]
+        };
+      }
+      bids.push(bid);
+    }
+    
+    // Get won auctions
+    let winsSnapshot;
+    try {
+      winsSnapshot = await db.collection('products')
+        .where('winnerId', '==', userId)
+        .orderBy('endedAt', 'desc')
+        .limit(10)
+        .get();
+    } catch (error) {
+      // Fallback without orderBy if index is missing
+      winsSnapshot = await db.collection('products')
+        .where('winnerId', '==', userId)
+        .limit(10)
+        .get();
+    }
+    
+    const wins = winsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Get watchlist items
+    const userDoc = await db.collection('users').doc(userId).get();
+    const watchlist = userDoc.data()?.watchlist || [];
+    
+    res.json({
+      success: true,
+      data: {
+        bids,
+        wins,
+        watchlist,
+        stats: {
+          totalBids: bids.length,
+          totalWins: wins.length,
+          watchlistCount: watchlist.length
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching user activity:', error);
+    res.status(500).json({ error: 'Failed to fetch activity' });
+  }
+});
+
 module.exports = router;

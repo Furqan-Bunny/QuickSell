@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const admin = require('firebase-admin');
 const { authMiddleware } = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 const db = admin.firestore();
 
@@ -99,8 +100,10 @@ router.post('/', authMiddleware, async (req, res) => {
       transaction.set(bidRef, bidData);
       
       // Update previous highest bid to outbid status
+      let previousBidderData = null;
       if (!highestBidSnapshot.empty) {
         const previousBid = highestBidSnapshot.docs[0];
+        previousBidderData = previousBid.data();
         transaction.update(previousBid.ref, { 
           status: 'outbid',
           updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -129,7 +132,7 @@ router.post('/', authMiddleware, async (req, res) => {
       
       transaction.update(productDoc.ref, updates);
       
-      return { bidId: bidRef.id, ...bidData };
+      return { bidId: bidRef.id, ...bidData, previousBidderData };
     });
     
     // Emit socket event for real-time updates
@@ -141,6 +144,24 @@ router.post('/', authMiddleware, async (req, res) => {
         userName: result.userName,
         timestamp: new Date()
       });
+    }
+    
+    // Send email notifications
+    try {
+      // Send bid confirmation to current bidder
+      await emailService.sendBidConfirmation(userData, result, product);
+      
+      // Send outbid notification to previous highest bidder
+      if (result.previousBidderData) {
+        const previousUserDoc = await db.collection('users').doc(result.previousBidderData.userId).get();
+        if (previousUserDoc.exists) {
+          const previousUser = previousUserDoc.data();
+          await emailService.sendOutbidNotification(previousUser, product, amount);
+        }
+      }
+    } catch (emailError) {
+      console.error('Error sending email notifications:', emailError);
+      // Don't fail the bid if email fails
     }
     
     res.status(201).json({

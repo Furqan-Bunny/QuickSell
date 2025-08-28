@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useAuthStore } from '../store/authStore'
 import {
   UserIcon,
@@ -16,21 +16,29 @@ import {
 } from '@heroicons/react/24/outline'
 import { formatPrice } from '../utils/formatters'
 import toast from 'react-hot-toast'
+import { 
+  updateProfile, 
+  uploadAvatar, 
+  updateNotificationPreferences,
+  changePassword 
+} from '../services/userService'
 
 const Profile = () => {
   const { user, updateUser } = useAuthStore()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [activeTab, setActiveTab] = useState('personal')
   const [isEditing, setIsEditing] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [formData, setFormData] = useState({
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     username: user?.username || '',
     email: user?.email || '',
-    phone: '',
-    address: '',
-    city: '',
-    postalCode: '',
-    country: 'South Africa'
+    phone: user?.phone || '',
+    address: user?.address?.street || '',
+    city: user?.address?.city || '',
+    postalCode: user?.address?.postalCode || '',
+    country: user?.address?.country || 'South Africa'
   })
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -53,22 +61,43 @@ const Profile = () => {
     { id: 'billing', label: 'Billing', icon: CreditCardIcon }
   ]
 
-  const handleUpdateProfile = (e: React.FormEvent) => {
+  const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (user) {
-      updateUser({
-        ...user,
+    setIsLoading(true)
+    
+    try {
+      const profileData = {
         firstName: formData.firstName,
         lastName: formData.lastName,
         username: formData.username,
-        email: formData.email
-      })
-      toast.success('Profile updated successfully!')
-      setIsEditing(false)
+        email: formData.email,
+        phone: formData.phone,
+        address: {
+          street: formData.address,
+          city: formData.city,
+          postalCode: formData.postalCode,
+          country: formData.country
+        }
+      }
+      
+      const response = await updateProfile(profileData)
+      
+      if (response.success && user) {
+        updateUser({
+          ...user,
+          ...response.data
+        })
+        toast.success('Profile updated successfully!')
+        setIsEditing(false)
+      }
+    } catch (error: any) {
+      toast.error(error.error || 'Failed to update profile')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleChangePassword = (e: React.FormEvent) => {
+  const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       toast.error('Passwords do not match')
@@ -78,12 +107,61 @@ const Profile = () => {
       toast.error('Password must be at least 6 characters')
       return
     }
-    toast.success('Password changed successfully!')
-    setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    
+    setIsLoading(true)
+    try {
+      await changePassword(passwordData.currentPassword, passwordData.newPassword)
+      toast.success('Password changed successfully!')
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (error: any) {
+      toast.error(error.error || 'Failed to change password')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
-  const handleNotificationUpdate = () => {
-    toast.success('Notification preferences updated!')
+  const handleNotificationUpdate = async () => {
+    setIsLoading(true)
+    try {
+      await updateNotificationPreferences(notifications)
+      toast.success('Notification preferences updated!')
+    } catch (error: any) {
+      toast.error(error.error || 'Failed to update preferences')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+  
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB')
+      return
+    }
+    
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      const base64 = reader.result as string
+      setIsLoading(true)
+      
+      try {
+        const response = await uploadAvatar(base64)
+        if (response.success && user) {
+          updateUser({
+            ...user,
+            avatar: response.data.avatar
+          })
+          toast.success('Avatar updated successfully!')
+        }
+      } catch (error: any) {
+        toast.error(error.error || 'Failed to upload avatar')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    reader.readAsDataURL(file)
   }
 
   return (
@@ -105,9 +183,20 @@ const Profile = () => {
                   <UserIcon className="h-10 w-10 text-primary-600" />
                 )}
               </div>
-              <button className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-lg hover:shadow-xl">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 bg-white rounded-full p-1 shadow-lg hover:shadow-xl"
+                disabled={isLoading}
+              >
                 <CameraIcon className="h-4 w-4 text-gray-600" />
               </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarChange}
+                className="hidden"
+              />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
@@ -308,8 +397,8 @@ const Profile = () => {
                   >
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Save Changes
+                  <button type="submit" className="btn-primary" disabled={isLoading}>
+                    {isLoading ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               )}
@@ -358,8 +447,8 @@ const Profile = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
-                  <button type="submit" className="btn-primary">
-                    Update Password
+                  <button type="submit" className="btn-primary" disabled={isLoading}>
+                    {isLoading ? 'Updating...' : 'Update Password'}
                   </button>
                 </form>
               </div>
@@ -486,8 +575,8 @@ const Profile = () => {
                 </div>
               </div>
 
-              <button onClick={handleNotificationUpdate} className="btn-primary">
-                Save Preferences
+              <button onClick={handleNotificationUpdate} className="btn-primary" disabled={isLoading}>
+                {isLoading ? 'Saving...' : 'Save Preferences'}
               </button>
             </div>
           </div>

@@ -1,30 +1,59 @@
 import { Link } from 'react-router-dom'
 import { HeartIcon, ClockIcon, UserIcon, EyeIcon, CheckBadgeIcon } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartSolidIcon } from '@heroicons/react/24/solid'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 import { formatPrice, getTimeRemaining } from '../utils/formatters'
+import { addToWatchlist, removeFromWatchlist } from '../services/userService'
 
 interface ProductCardProps {
   product: any
   showTimer?: boolean
+  initialWishlisted?: boolean
 }
 
-const ProductCard = ({ product, showTimer = false }: ProductCardProps) => {
-  const { isAuthenticated } = useAuthStore()
-  const [isWishlisted, setIsWishlisted] = useState(false)
+const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: ProductCardProps) => {
+  const { isAuthenticated, user } = useAuthStore()
+  const [isWishlisted, setIsWishlisted] = useState(initialWishlisted)
+  const [isLoading, setIsLoading] = useState(false)
+  
+  // Check if product is in user's wishlist
+  useEffect(() => {
+    if (user?.watchlist && product?.id) {
+      setIsWishlisted(user.watchlist.includes(product.id))
+    }
+  }, [user?.watchlist, product?.id])
   
   const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault()
+    e.stopPropagation()
     
     if (!isAuthenticated) {
       toast.error('Please login to add to wishlist')
       return
     }
     
-    setIsWishlisted(!isWishlisted)
-    toast.success(isWishlisted ? 'Removed from wishlist' : 'Added to wishlist')
+    if (isLoading) return
+    
+    setIsLoading(true)
+    try {
+      if (isWishlisted) {
+        await removeFromWatchlist(product.id)
+        setIsWishlisted(false)
+        toast.success('Removed from wishlist')
+      } else {
+        await addToWatchlist(product.id)
+        setIsWishlisted(true)
+        toast.success('Added to wishlist')
+      }
+    } catch (error) {
+      toast.error('Failed to update wishlist')
+      // Revert the state on error
+      setIsWishlisted(isWishlisted)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const timeLeft = getTimeRemaining(product.endDate)
@@ -45,9 +74,12 @@ const ProductCard = ({ product, showTimer = false }: ProductCardProps) => {
           {/* Wishlist Button */}
           <button
             onClick={handleWishlist}
-            className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors shadow-lg"
+            disabled={isLoading}
+            className="absolute top-3 right-3 p-2 bg-white/90 backdrop-blur-sm rounded-full hover:bg-white transition-colors shadow-lg disabled:opacity-50"
           >
-            {isWishlisted ? (
+            {isLoading ? (
+              <div className="animate-spin h-5 w-5 border-2 border-gray-400 border-t-transparent rounded-full" />
+            ) : isWishlisted ? (
               <HeartSolidIcon className="h-5 w-5 text-red-500" />
             ) : (
               <HeartIcon className="h-5 w-5 text-gray-600" />

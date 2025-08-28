@@ -5,7 +5,7 @@ const { body, validationResult } = require('express-validator');
 const { userUtils } = require('../utils/firestore');
 const { firebaseAuthMiddleware } = require('../middleware/firebaseAuth');
 const crypto = require('crypto');
-const { sendTemplatedEmail } = require('../utils/brevoEmail');
+const emailService = require('../services/emailService');
 
 // Register
 router.post('/register', [
@@ -61,14 +61,18 @@ router.post('/register', [
       }
     });
 
-    // Send verification email using Brevo
-    const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verificationToken}`;
-    await sendTemplatedEmail('verifyEmail', {
-      to: email,
-      name: `${firstName} ${lastName}`,
-      firstName,
-      verificationUrl
-    });
+    // Send welcome email
+    try {
+      await emailService.sendWelcomeEmail({
+        email,
+        firstName,
+        lastName,
+        uid: user.id
+      });
+    } catch (emailError) {
+      console.error('Error sending welcome email:', emailError);
+      // Don't fail registration if email fails
+    }
 
     // Process referral if code is provided
     if (referralCode) {

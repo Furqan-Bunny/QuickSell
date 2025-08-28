@@ -15,6 +15,14 @@ interface User {
   avatar?: string
   balance: number
   emailVerified: boolean
+  phone?: string
+  address?: {
+    street?: string
+    city?: string
+    postalCode?: string
+    country?: string
+  }
+  watchlist?: string[]
 }
 
 interface AuthState {

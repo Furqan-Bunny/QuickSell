@@ -46,6 +46,8 @@ lerna-debug.log*
 firebase-debug.log
 firebase-debug.*.log
 firebase-export-*
+backend/config/serviceAccountKey.json
+backend/config/quicksell-*.json
 
 # OS files
 Thumbs.db

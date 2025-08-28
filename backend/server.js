@@ -134,6 +134,10 @@ socketService.initialize(server);
 // Make socket service accessible to routes
 app.set('socketService', socketService);
 
+// Initialize Auction Scheduler
+const auctionScheduler = require('./services/auctionScheduler');
+auctionScheduler.start();
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });

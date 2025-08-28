@@ -1,6 +1,6 @@
 # Quicksell - Online Auction Platform
 
-Quicksell is a modern online auction marketplace built for South Africa, enabling users to buy and sell items through real-time bidding.
+A modern, real-time online auction platform built with React, Node.js, Firebase, and Socket.io. Quicksell provides a comprehensive solution for online auctions with features like real-time bidding, user management, payment integration, and admin controls.
 
 ## 🚀 Features
 

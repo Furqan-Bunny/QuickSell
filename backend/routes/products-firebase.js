@@ -346,50 +346,25 @@ router.post('/:id/end', authMiddleware, async (req, res) => {
     }
     
     const productId = req.params.id;
+    const auctionScheduler = require('../services/auctionScheduler');
     
-    // Get highest bid
-    const bidsSnapshot = await db.collection('bids')
-      .where('productId', '==', productId)
-      .where('status', '==', 'active')
-      .orderBy('amount', 'desc')
-      .limit(1)
-      .get();
+    const result = await auctionScheduler.endAuctionManually(productId);
     
-    let updates = {
-      status: 'ended',
-      endedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-    
-    if (!bidsSnapshot.empty) {
-      const highestBid = bidsSnapshot.docs[0].data();
-      updates.winnerId = highestBid.userId;
-      updates.winnerName = highestBid.userName;
-      updates.finalPrice = highestBid.amount;
-      updates.status = 'sold';
-    }
-    
-    await db.collection('products').doc(productId).update(updates);
-    
-    // Emit socket event if winner exists
-    if (updates.winnerId) {
-      const socketService = req.app.get('socketService');
-      if (socketService) {
-        socketService.emitToAuction(productId, 'auction-ended', {
-          winnerId: updates.winnerId,
-          winnerName: updates.winnerName,
-          finalPrice: updates.finalPrice
-        });
-      }
+    // Emit socket event
+    const socketService = req.app.get('socketService');
+    if (socketService) {
+      socketService.emitToAuction(productId, 'auction-ended', {
+        message: 'Auction has ended'
+      });
     }
     
     res.json({
       success: true,
-      message: 'Auction ended successfully',
-      data: updates
+      message: result.message
     });
   } catch (error) {
     console.error('Error ending auction:', error);
-    res.status(500).json({ error: 'Failed to end auction' });
+    res.status(500).json({ error: error.message || 'Failed to end auction' });
   }
 });
 

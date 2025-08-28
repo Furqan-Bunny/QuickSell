@@ -297,4 +297,92 @@ router.get('/watchlist', authMiddleware, async (req, res) => {
   }
 });
 
+// Get seller dashboard stats
+router.get('/seller-dashboard', authMiddleware, async (req, res) => {
+  try {
+    const sellerId = req.user.uid;
+    
+    // Get seller's products
+    const productsSnapshot = await db.collection('products')
+      .where('sellerId', '==', sellerId)
+      .get();
+    
+    const products = productsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Get seller's sales (orders where they are the seller)
+    const salesSnapshot = await db.collection('orders')
+      .where('sellerId', '==', sellerId)
+      .get();
+    
+    const sales = salesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    // Calculate stats
+    const stats = {
+      totalListings: products.length,
+      activeListings: products.filter(p => p.status === 'active').length,
+      soldItems: products.filter(p => p.status === 'sold').length,
+      endedAuctions: products.filter(p => p.status === 'ended').length,
+      totalSales: sales.filter(s => s.paymentStatus === 'completed').length,
+      pendingPayments: sales.filter(s => s.paymentStatus === 'pending').length,
+      totalRevenue: sales
+        .filter(s => s.paymentStatus === 'completed')
+        .reduce((sum, s) => sum + (s.amount || 0), 0),
+      totalBids: products.reduce((sum, p) => sum + (p.totalBids || 0), 0),
+      totalViews: products.reduce((sum, p) => sum + (p.views || 0), 0),
+      averagePrice: products.length > 0 
+        ? products.reduce((sum, p) => sum + (p.currentPrice || 0), 0) / products.length 
+        : 0
+    };
+    
+    // Get recent activity
+    const recentActivity = [];
+    
+    // Add recent bids on seller's products
+    for (const product of products.slice(0, 5)) {
+      const bidsSnapshot = await db.collection('bids')
+        .where('productId', '==', product.id)
+        .orderBy('createdAt', 'desc')
+        .limit(1)
+        .get();
+      
+      if (!bidsSnapshot.empty) {
+        const bid = bidsSnapshot.docs[0].data();
+        recentActivity.push({
+          type: 'bid',
+          productTitle: product.title,
+          amount: bid.amount,
+          userName: bid.userName,
+          timestamp: bid.createdAt
+        });
+      }
+    }
+    
+    // Sort activity by timestamp
+    recentActivity.sort((a, b) => {
+      const timeA = a.timestamp?._seconds || 0;
+      const timeB = b.timestamp?._seconds || 0;
+      return timeB - timeA;
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        stats,
+        recentProducts: products.slice(0, 5),
+        recentSales: sales.slice(0, 5),
+        recentActivity: recentActivity.slice(0, 10)
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching seller dashboard:', error);
+    res.status(500).json({ error: 'Failed to fetch seller dashboard' });
+  }
+});
+
 module.exports = router;

@@ -1,6 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const { productUtils, categoryUtils } = require('../utils/firestore');
+const { authMiddleware } = require('../middleware/auth');
+const admin = require('firebase-admin');
+const db = admin.firestore();
+
+// Get seller's products
+router.get('/my-products', authMiddleware, async (req, res) => {
+  try {
+    const sellerId = req.user.uid;
+    const { status } = req.query;
+    
+    let query = db.collection('products')
+      .where('sellerId', '==', sellerId);
+    
+    if (status && status !== 'all') {
+      query = query.where('status', '==', status);
+    }
+    
+    const productsSnapshot = await query
+      .orderBy('createdAt', 'desc')
+      .get();
+    
+    const products = productsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+    
+    res.json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    console.error('Error fetching seller products:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch your products' 
+    });
+  }
+});
 
 // Get all products (simple version for testing)
 router.get('/', async (req, res) => {

@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
+import axios from 'axios'
 import {
   PlusCircleIcon,
   ClockIcon,
@@ -11,61 +12,105 @@ import {
   PencilIcon,
   TrashIcon,
   ArrowRightIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  ChartBarIcon,
+  ShoppingBagIcon
 } from '@heroicons/react/24/outline'
-import { mockProducts, formatPrice, getTimeRemaining } from '../data/mockData'
-import ProductCard from '../components/ProductCard'
+import { formatPrice, getTimeRemaining } from '../data/mockData'
+import toast from 'react-hot-toast'
+
+interface Product {
+  id: string
+  title: string
+  description: string
+  images: string[]
+  currentPrice: number
+  startingPrice: number
+  buyNowPrice?: number
+  status: string
+  endDate: any
+  startDate: any
+  categoryId: string
+  category?: string
+  totalBids: number
+  views: number
+  sellerId: string
+  sellerName?: string
+  createdAt: any
+  updatedAt: any
+}
 
 const MyAuctions = () => {
   const { user } = useAuthStore()
-  const [activeAuctions, setActiveAuctions] = useState<any[]>([])
-  const [endedAuctions, setEndedAuctions] = useState<any[]>([])
-  const [draftAuctions, setDraftAuctions] = useState<any[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [activeTab, setActiveTab] = useState('active')
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<any>(null)
 
   useEffect(() => {
-    loadMyAuctions()
-  }, [user])
+    if (user) {
+      loadMyAuctions()
+      loadSellerStats()
+    }
+  }, [user, activeTab])
 
-  const loadMyAuctions = () => {
-    if (!user) return
-
-    // Filter products by seller (in real app, this would be an API call)
-    const myProducts = mockProducts.filter(p => 
-      // For demo, assign some products to the current user
-      user.role === 'admin' || (p.seller?.id === user.id)
-    )
-
-    // Categorize auctions
-    const active = myProducts.filter(p => p.status === 'active')
-    const ended = myProducts.filter(p => p.status === 'ended' || p.status === 'sold')
-    const drafts: any[] = [] // No draft status in mock data
-
-    // For demo purposes, assign some mock products to admin user
-    if (user.role === 'admin' && active.length === 0) {
-      const demoActive = mockProducts.slice(0, 3).map(p => ({
-        ...p,
-        seller: { id: user.id, username: user.username }
-      }))
-      setActiveAuctions(demoActive)
+  const loadMyAuctions = async () => {
+    setLoading(true)
+    try {
+      const endpoint = activeTab === 'all' 
+        ? '/api/products/my-products' 
+        : `/api/products/my-products?status=${activeTab}`
       
-      const demoEnded = mockProducts.slice(3, 5).map(p => ({
-        ...p,
-        status: 'sold',
-        seller: { id: user.id, username: user.username }
-      }))
-      setEndedAuctions(demoEnded)
-    } else {
-      setActiveAuctions(active)
-      setEndedAuctions(ended)
-      setDraftAuctions(drafts)
+      const response = await axios.get(endpoint)
+      if (response.data.success) {
+        setProducts(response.data.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading auctions:', error)
+      setProducts([])
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleDelete = (productId: string) => {
-    if (confirm('Are you sure you want to delete this auction?')) {
-      // In real app, make API call to delete
-      setActiveAuctions(prev => prev.filter(p => p.id !== productId))
+  const loadSellerStats = async () => {
+    try {
+      const response = await axios.get('/api/users/seller-dashboard')
+      if (response.data.success) {
+        setStats(response.data.data.stats)
+      }
+    } catch (error) {
+      console.error('Error loading seller stats:', error)
+    }
+  }
+
+  const handleDelete = async (productId: string) => {
+    if (!confirm('Are you sure you want to delete this auction?')) return
+    
+    try {
+      const response = await axios.delete(`/api/products/${productId}`)
+      if (response.data.success) {
+        setProducts(prev => prev.filter(p => p.id !== productId))
+        toast.success('Auction deleted successfully')
+      }
+    } catch (error) {
+      console.error('Error deleting auction:', error)
+      toast.error('Failed to delete auction')
+    }
+  }
+
+  const handleEndAuction = async (productId: string) => {
+    if (!confirm('Are you sure you want to end this auction early?')) return
+    
+    try {
+      const response = await axios.put(`/api/products/${productId}/end`)
+      if (response.data.success) {
+        loadMyAuctions()
+        toast.success('Auction ended successfully')
+      }
+    } catch (error) {
+      console.error('Error ending auction:', error)
+      toast.error('Failed to end auction')
     }
   }
 
@@ -73,43 +118,67 @@ const MyAuctions = () => {
     const badges: Record<string, string> = {
       active: 'bg-green-100 text-green-800',
       ended: 'bg-gray-100 text-gray-800',
-      sold: 'bg-blue-100 text-blue-800'
+      sold: 'bg-blue-100 text-blue-800',
+      draft: 'bg-yellow-100 text-yellow-800'
     }
     return badges[status] || 'bg-gray-100 text-gray-800'
   }
 
   const tabs = [
-    { id: 'active', label: 'Active', count: activeAuctions.length },
-    { id: 'ended', label: 'Ended', count: endedAuctions.length },
-    { id: 'drafts', label: 'Drafts', count: draftAuctions.length }
+    { id: 'all', label: 'All Listings', count: stats?.totalListings || 0 },
+    { id: 'active', label: 'Active', count: stats?.activeListings || 0 },
+    { id: 'ended', label: 'Ended', count: stats?.endedAuctions || 0 },
+    { id: 'sold', label: 'Sold', count: stats?.soldItems || 0 }
   ]
 
-  const getCurrentAuctions = () => {
-    switch (activeTab) {
-      case 'active': return activeAuctions
-      case 'ended': return endedAuctions
-      case 'drafts': return draftAuctions
-      default: return []
+  const statsCards = [
+    {
+      title: 'Total Views',
+      value: stats?.totalViews || 0,
+      icon: EyeIcon,
+      color: 'bg-blue-500'
+    },
+    {
+      title: 'Total Bids',
+      value: stats?.totalBids || 0,
+      icon: ClockIcon,
+      color: 'bg-green-500'
+    },
+    {
+      title: 'Total Revenue',
+      value: formatPrice(stats?.totalRevenue || 0),
+      icon: CurrencyDollarIcon,
+      color: 'bg-purple-500'
+    },
+    {
+      title: 'Avg. Price',
+      value: formatPrice(stats?.averagePrice || 0),
+      icon: ChartBarIcon,
+      color: 'bg-orange-500'
     }
-  }
+  ]
 
-  if (user?.role !== 'admin') {
+  // Check if user has seller role or is admin
+  const canSell = user?.role === 'admin' || user?.role === 'seller'
+
+  if (!canSell) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
         className="text-center py-12"
       >
-        <div className="card max-w-2xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Seller Access Required</h2>
-          <p className="text-gray-600 mb-6">
-            Only approved sellers and administrators can create and manage auctions.
+        <div className="card max-w-md mx-auto">
+          <ShoppingBagIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Become a Seller
+          </h2>
+          <p className="text-gray-600 mb-4">
+            You need seller privileges to list items for auction.
           </p>
-          <p className="text-sm text-gray-500 mb-6">
-            Note: In this demo, only admin accounts can create auctions. Regular users can only bid on existing items.
-          </p>
-          <Link to="/products" className="btn-primary">
-            Browse Auctions
+          <Link to="/profile" className="btn-primary">
+            Request Seller Access
           </Link>
         </div>
       </motion.div>
@@ -124,68 +193,42 @@ const MyAuctions = () => {
       className="space-y-6"
     >
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Auctions</h1>
-          <p className="text-gray-600 mt-2">Manage your auction listings</p>
+      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">My Auctions</h1>
+            <p className="text-gray-600 mt-2">
+              Manage your listings and track auction performance
+            </p>
+          </div>
+          <Link to="/create-auction" className="btn-primary">
+            <PlusCircleIcon className="h-5 w-5 mr-2" />
+            Create New Auction
+          </Link>
         </div>
-        <Link to="/create-auction" className="btn-primary flex items-center gap-2">
-          <PlusCircleIcon className="h-5 w-5" />
-          Create New Auction
-        </Link>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Active</p>
-              <p className="text-2xl font-bold text-gray-900">{activeAuctions.length}</p>
+        {statsCards.map((stat, index) => (
+          <motion.div
+            key={stat.title}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.1 }}
+            className="card"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">{stat.title}</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
+              </div>
+              <div className={`${stat.color} p-3 rounded-lg bg-opacity-10`}>
+                <stat.icon className={`h-6 w-6 ${stat.color.replace('bg-', 'text-')}`} />
+              </div>
             </div>
-            <ClockIcon className="h-8 w-8 text-primary-600" />
-          </div>
-        </div>
-        
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Sold</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {endedAuctions.filter(p => p.status === 'sold').length}
-              </p>
-            </div>
-            <CheckCircleIcon className="h-8 w-8 text-green-600" />
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Views</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {[...activeAuctions, ...endedAuctions].reduce((sum, p) => sum + (p.views || 0), 0)}
-              </p>
-            </div>
-            <EyeIcon className="h-8 w-8 text-blue-600" />
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatPrice(
-                  endedAuctions
-                    .filter(p => p.status === 'sold')
-                    .reduce((sum, p) => sum + p.currentPrice, 0)
-                )}
-              </p>
-            </div>
-            <CurrencyDollarIcon className="h-8 w-8 text-green-600" />
-          </div>
-        </div>
+          </motion.div>
+        ))}
       </div>
 
       {/* Tabs */}
@@ -195,136 +238,149 @@ const MyAuctions = () => {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`
-                py-2 px-1 border-b-2 font-medium text-sm transition-colors
-                ${activeTab === tab.id
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === tab.id
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }
-              `}
+              }`}
             >
               {tab.label}
-              {tab.count > 0 && (
-                <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
-                  {tab.count}
-                </span>
-              )}
+              <span className="ml-2 px-2 py-0.5 rounded-full text-xs bg-gray-100 text-gray-600">
+                {tab.count}
+              </span>
             </button>
           ))}
         </nav>
       </div>
 
-      {/* Auction List */}
-      <div>
-        {getCurrentAuctions().length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-400 mb-4">
-              {activeTab === 'active' && <ClockIcon className="h-12 w-12 mx-auto" />}
-              {activeTab === 'ended' && <CheckCircleIcon className="h-12 w-12 mx-auto" />}
-              {activeTab === 'drafts' && <PencilIcon className="h-12 w-12 mx-auto" />}
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No {activeTab} auctions
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {activeTab === 'active' && "You don't have any active auctions at the moment."}
-              {activeTab === 'ended' && "You don't have any ended auctions yet."}
-              {activeTab === 'drafts' && "You don't have any draft auctions."}
-            </p>
-            {activeTab === 'active' && (
-              <Link to="/create-auction" className="btn-primary">
-                Create Your First Auction
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {getCurrentAuctions().map((auction) => (
-              <motion.div
-                key={auction.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="card hover:shadow-xl transition-shadow"
-              >
-                <div className="flex gap-6">
-                  {/* Image */}
-                  <div className="flex-shrink-0">
-                    <img
-                      src={auction.images[0]?.url || '/placeholder.jpg'}
-                      alt={auction.title}
-                      className="w-32 h-32 object-cover rounded-lg"
-                    />
-                  </div>
+      {/* Auctions List */}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      ) : products.length > 0 ? (
+        <div className="space-y-4">
+          {products.map((product) => {
+            const endDate = product.endDate?._seconds 
+              ? new Date(product.endDate._seconds * 1000) 
+              : new Date(product.endDate || new Date())
+            const timeRemaining = product.status === 'active' ? getTimeRemaining(endDate) : null
 
-                  {/* Details */}
-                  <div className="flex-grow">
+            return (
+              <div key={product.id} className="card hover:shadow-lg transition-shadow">
+                <div className="flex items-start space-x-4">
+                  <img
+                    src={product.images?.[0] || 'https://via.placeholder.com/100'}
+                    alt={product.title}
+                    className="w-24 h-24 object-cover rounded-lg"
+                  />
+                  <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                          {auction.title}
-                        </h3>
-                        <span className={`badge ${getStatusBadge(auction.status)}`}>
-                          {auction.status}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
                         <Link
-                          to={`/products/${auction.id}`}
-                          className="p-2 text-gray-600 hover:text-primary-600 transition-colors"
-                          title="View"
+                          to={`/products/${product.id}`}
+                          className="text-lg font-semibold text-gray-900 hover:text-primary-600"
                         >
-                          <EyeIcon className="h-5 w-5" />
+                          {product.title}
                         </Link>
-                        <button
-                          className="p-2 text-gray-600 hover:text-primary-600 transition-colors"
-                          title="Edit"
+                        <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(product.status)}`}>
+                            {product.status.charAt(0).toUpperCase() + product.status.slice(1)}
+                          </span>
+                          <span>{product.totalBids || 0} bids</span>
+                          <span>{product.views || 0} views</span>
+                          {timeRemaining && (
+                            <span>
+                              <ClockIcon className="inline h-3 w-3" />
+                              {' '}{timeRemaining} left
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xl font-bold text-primary-600">
+                          {formatPrice(product.currentPrice)}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Starting: {formatPrice(product.startingPrice)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="flex space-x-2">
+                        <Link
+                          to={`/products/${product.id}`}
+                          className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
                         >
-                          <PencilIcon className="h-5 w-5" />
-                        </button>
+                          <EyeIcon className="h-4 w-4 mr-1" />
+                          View
+                        </Link>
+                        {product.status === 'active' && (
+                          <>
+                            <Link
+                              to={`/edit-auction/${product.id}`}
+                              className="inline-flex items-center px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              <PencilIcon className="h-4 w-4 mr-1" />
+                              Edit
+                            </Link>
+                            <button
+                              onClick={() => handleEndAuction(product.id)}
+                              className="inline-flex items-center px-3 py-1 border border-orange-300 text-orange-600 rounded-md text-sm font-medium hover:bg-orange-50"
+                            >
+                              <XCircleIcon className="h-4 w-4 mr-1" />
+                              End Early
+                            </button>
+                          </>
+                        )}
+                        {product.status !== 'active' && (
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="inline-flex items-center px-3 py-1 border border-red-300 text-red-600 rounded-md text-sm font-medium hover:bg-red-50"
+                          >
+                            <TrashIcon className="h-4 w-4 mr-1" />
+                            Delete
+                          </button>
+                        )}
                       </div>
+                      
+                      {product.status === 'sold' && (
+                        <Link
+                          to={`/orders?product=${product.id}`}
+                          className="text-sm text-primary-600 hover:text-primary-700"
+                        >
+                          View Order <ArrowRightIcon className="inline h-3 w-3" />
+                        </Link>
+                      )}
                     </div>
-
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                      <div>
-                        <p className="text-sm text-gray-600">Current Price</p>
-                        <p className="font-semibold">{formatPrice(auction.currentPrice)}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Bids</p>
-                        <p className="font-semibold">{auction.totalBids || 0}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">Views</p>
-                        <p className="font-semibold">{auction.views || 0}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          {auction.status === 'active' ? 'Ends In' : 'Ended'}
-                        </p>
-                        <p className="font-semibold">
-                          {auction.status === 'active' 
-                            ? getTimeRemaining(auction.endDate)
-                            : new Date(auction.endDate).toLocaleDateString()
-                          }
-                        </p>
-                      </div>
-                    </div>
-
-                    {auction.status === 'sold' && (
-                      <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-sm text-green-800">
-                          <CheckCircleIcon className="h-4 w-4 inline mr-1" />
-                          Sold to {auction.winner?.username || 'Unknown'} for {formatPrice(auction.currentPrice)}
-                        </p>
-                      </div>
-                    )}
                   </div>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        )}
-      </div>
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="text-center py-12">
+          <ShoppingBagIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+            {activeTab === 'all' 
+              ? 'No auctions yet' 
+              : `No ${activeTab} auctions`}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {activeTab === 'all'
+              ? 'Create your first auction to start selling'
+              : `You don't have any ${activeTab} auctions`}
+          </p>
+          {activeTab === 'all' && (
+            <Link to="/create-auction" className="btn-primary">
+              <PlusCircleIcon className="h-5 w-5 mr-2" />
+              Create Your First Auction
+            </Link>
+          )}
+        </div>
+      )}
     </motion.div>
   )
 }

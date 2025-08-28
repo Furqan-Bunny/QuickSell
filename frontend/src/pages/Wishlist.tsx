@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import axios from 'axios'
 import {
   HeartIcon as HeartIconOutline,
   ClockIcon,
@@ -15,19 +16,31 @@ import {
 import {
   HeartIcon as HeartIconSolid
 } from '@heroicons/react/24/solid'
-import { mockProducts, formatPrice, getTimeRemaining, categories } from '../data/mockData'
+import { formatPrice, getTimeRemaining } from '../data/mockData'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
 
 interface WishlistItem {
   id: string
-  product: any
-  addedDate: string
-  priceAlert?: {
-    enabled: boolean
-    targetPrice: number
+  product: {
+    id: string
+    title: string
+    description: string
+    images: string[]
+    currentPrice: number
+    startingPrice: number
+    buyNowPrice?: number
+    endDate: any
+    status: string
+    category: string
+    categoryId: string
+    totalBids: number
+    views: number
+    sellerId: string
+    sellerName?: string
   }
-  notes?: string
+  addedAt: any
+  productId: string
 }
 
 const Wishlist = () => {
@@ -38,100 +51,62 @@ const Wishlist = () => {
   const [filterCategory, setFilterCategory] = useState('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [priceRange, setPriceRange] = useState({ min: '', max: '' })
+  const [categories, setCategories] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadWishlist()
+    loadCategories()
   }, [])
 
-  const loadWishlist = () => {
-    // Mock wishlist data
-    const mockWishlist: WishlistItem[] = [
-      {
-        id: 'wish-1',
-        product: mockProducts[0], // iPhone 14 Pro Max
-        addedDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
-        priceAlert: {
-          enabled: true,
-          targetPrice: 16000
-        },
-        notes: 'Need 256GB version in Deep Purple'
-      },
-      {
-        id: 'wish-2',
-        product: mockProducts[1], // Volkswagen Polo GTI
-        addedDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000).toISOString(),
-        priceAlert: {
-          enabled: false,
-          targetPrice: 300000
-        }
-      },
-      {
-        id: 'wish-3',
-        product: mockProducts[4], // Gold Coins
-        addedDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        priceAlert: {
-          enabled: true,
-          targetPrice: 130000
-        },
-        notes: 'Investment piece - waiting for good price'
-      },
-      {
-        id: 'wish-4', 
-        product: mockProducts[6], // Springboks Jersey
-        addedDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
-        priceAlert: {
-          enabled: true,
-          targetPrice: 5500
-        }
-      },
-      {
-        id: 'wish-5',
-        product: mockProducts[7], // Weber Braai
-        addedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(),
-        priceAlert: {
-          enabled: false,
-          targetPrice: 10000
-        },
-        notes: 'Perfect for summer braais!'
-      },
-      {
-        id: 'wish-6',
-        product: mockProducts[9], // Leather Jacket
-        addedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        priceAlert: {
-          enabled: true,
-          targetPrice: 3000
+  const loadWishlist = async () => {
+    setLoading(true)
+    try {
+      const response = await axios.get('/api/users/watchlist')
+      if (response.data.success) {
+        setWishlistItems(response.data.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading wishlist:', error)
+      setWishlistItems([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadCategories = async () => {
+    try {
+      const response = await axios.get('/api/categories')
+      if (response.data.success) {
+        setCategories(response.data.data || [])
+      }
+    } catch (error) {
+      console.error('Error loading categories:', error)
+    }
+  }
+
+  const toggleWishlist = async (productId: string) => {
+    try {
+      const response = await axios.post(`/api/users/watchlist/${productId}`)
+      if (response.data.success) {
+        if (!response.data.added) {
+          // Item was removed
+          setWishlistItems(prev => prev.filter(item => item.product.id !== productId))
+          toast.success('Removed from wishlist')
         }
       }
-    ]
-
-    setWishlistItems(mockWishlist)
+    } catch (error) {
+      console.error('Error toggling wishlist:', error)
+      toast.error('Failed to update wishlist')
+    }
   }
 
-  const removeFromWishlist = (itemId: string) => {
-    setWishlistItems(prev => prev.filter(item => item.id !== itemId))
-    toast.success('Item removed from wishlist')
-  }
-
-  const togglePriceAlert = (itemId: string) => {
-    setWishlistItems(prev => prev.map(item => 
-      item.id === itemId 
-        ? { ...item, priceAlert: { ...item.priceAlert!, enabled: !item.priceAlert!.enabled } }
-        : item
-    ))
-    toast.success('Price alert updated')
-  }
-
-  const updatePriceAlert = (itemId: string, targetPrice: number) => {
-    setWishlistItems(prev => prev.map(item => 
-      item.id === itemId 
-        ? { ...item, priceAlert: { ...item.priceAlert!, targetPrice } }
-        : item
-    ))
-    toast.success('Price alert updated')
+  const removeFromWishlist = async (productId: string) => {
+    await toggleWishlist(productId)
   }
 
   const filteredItems = wishlistItems.filter(item => {
+    if (!item.product) return false
     if (filterCategory !== 'all' && item.product.categoryId !== filterCategory) return false
     if (searchQuery && !item.product.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     if (priceRange.min && item.product.currentPrice < parseInt(priceRange.min)) return false
@@ -141,11 +116,20 @@ const Wishlist = () => {
 
   const sortedItems = [...filteredItems].sort((a, b) => {
     switch (sortBy) {
-      case 'price-low': return a.product.currentPrice - b.product.currentPrice
-      case 'price-high': return b.product.currentPrice - a.product.currentPrice
-      case 'ending-soon': return new Date(a.product.endDate).getTime() - new Date(b.product.endDate).getTime()
-      case 'recent': return new Date(b.addedDate).getTime() - new Date(a.addedDate).getTime()
-      case 'oldest': return new Date(a.addedDate).getTime() - new Date(b.addedDate).getTime()
+      case 'price-low': return (a.product?.currentPrice || 0) - (b.product?.currentPrice || 0)
+      case 'price-high': return (b.product?.currentPrice || 0) - (a.product?.currentPrice || 0)
+      case 'ending-soon': 
+        const aDate = a.product?.endDate?._seconds ? new Date(a.product.endDate._seconds * 1000) : new Date()
+        const bDate = b.product?.endDate?._seconds ? new Date(b.product.endDate._seconds * 1000) : new Date()
+        return aDate.getTime() - bDate.getTime()
+      case 'recent': 
+        const aAdded = a.addedAt?._seconds ? new Date(a.addedAt._seconds * 1000) : new Date()
+        const bAdded = b.addedAt?._seconds ? new Date(b.addedAt._seconds * 1000) : new Date()
+        return bAdded.getTime() - aAdded.getTime()
+      case 'oldest': 
+        const aOld = a.addedAt?._seconds ? new Date(a.addedAt._seconds * 1000) : new Date()
+        const bOld = b.addedAt?._seconds ? new Date(b.addedAt._seconds * 1000) : new Date()
+        return aOld.getTime() - bOld.getTime()
       default: return 0
     }
   })
@@ -158,16 +142,20 @@ const Wishlist = () => {
       color: 'bg-red-500'
     },
     {
-      title: 'Price Alerts',
-      value: wishlistItems.filter(item => item.priceAlert?.enabled).length,
+      title: 'Active Auctions',
+      value: wishlistItems.filter(item => item.product?.status === 'active').length,
       icon: BellIcon,
       color: 'bg-blue-500'
     },
     {
       title: 'Ending Soon',
       value: wishlistItems.filter(item => {
-        const timeLeft = new Date(item.product.endDate).getTime() - new Date().getTime()
-        return timeLeft < 24 * 60 * 60 * 1000 // Less than 24 hours
+        if (!item.product?.endDate) return false
+        const endTime = item.product.endDate._seconds ? 
+          new Date(item.product.endDate._seconds * 1000) : 
+          new Date(item.product.endDate)
+        const timeLeft = endTime.getTime() - new Date().getTime()
+        return timeLeft > 0 && timeLeft < 24 * 60 * 60 * 1000 // Less than 24 hours
       }).length,
       icon: ClockIcon,
       color: 'bg-orange-500'
@@ -175,7 +163,7 @@ const Wishlist = () => {
     {
       title: 'Avg. Price',
       value: wishlistItems.length > 0 
-        ? formatPrice(wishlistItems.reduce((sum, item) => sum + item.product.currentPrice, 0) / wishlistItems.length)
+        ? formatPrice(wishlistItems.reduce((sum, item) => sum + (item.product?.currentPrice || 0), 0) / wishlistItems.length)
         : formatPrice(0),
       icon: ShoppingBagIcon,
       color: 'bg-green-500'
@@ -183,8 +171,13 @@ const Wishlist = () => {
   ]
 
   const WishlistCard = ({ item, isGrid = true }: { item: WishlistItem; isGrid?: boolean }) => {
-    const timeRemaining = getTimeRemaining(item.product.endDate)
-    const isEndingSoon = new Date(item.product.endDate).getTime() - new Date().getTime() < 24 * 60 * 60 * 1000
+    if (!item.product) return null
+    
+    const endDate = item.product.endDate?._seconds ? 
+      new Date(item.product.endDate._seconds * 1000) : 
+      new Date(item.product.endDate || new Date())
+    const timeRemaining = getTimeRemaining(endDate)
+    const isEndingSoon = endDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000
 
     if (isGrid) {
       return (
@@ -194,18 +187,23 @@ const Wishlist = () => {
         >
           <div className="relative">
             <img
-              src={item.product.images[0]}
+              src={item.product.images?.[0] || 'https://via.placeholder.com/300'}
               alt={item.product.title}
               className="w-full h-48 object-cover rounded-t-lg group-hover:scale-105 transition-transform"
             />
-            {isEndingSoon && (
+            {isEndingSoon && item.product.status === 'active' && (
               <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded-full text-xs font-medium">
                 Ending Soon!
               </div>
             )}
+            {item.product.status !== 'active' && (
+              <div className="absolute top-2 left-2 bg-gray-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                {item.product.status === 'ended' ? 'Ended' : 'Sold'}
+              </div>
+            )}
             <div className="absolute top-2 right-2 flex space-x-1">
               <button
-                onClick={() => removeFromWishlist(item.id)}
+                onClick={() => removeFromWishlist(item.product.id)}
                 className="p-1.5 bg-white/80 hover:bg-white rounded-full transition-colors"
                 title="Remove from wishlist"
               >
@@ -225,47 +223,24 @@ const Wishlist = () => {
             <div className="flex items-center justify-between mt-2">
               <div>
                 <p className="text-lg font-bold text-primary-600">{formatPrice(item.product.currentPrice)}</p>
-                {item.priceAlert?.enabled && item.product.currentPrice <= item.priceAlert.targetPrice && (
-                  <p className="text-sm text-green-600 font-medium">Price Alert Hit!</p>
+                {item.product.buyNowPrice && (
+                  <p className="text-xs text-gray-500">Buy Now: {formatPrice(item.product.buyNowPrice)}</p>
                 )}
               </div>
               <div className="text-right text-sm text-gray-600">
-                <ClockIcon className="inline h-3 w-3" />
-                <span className="ml-1">{timeRemaining}</span>
+                {item.product.status === 'active' && (
+                  <>
+                    <ClockIcon className="inline h-3 w-3" />
+                    <span className="ml-1">{timeRemaining}</span>
+                  </>
+                )}
               </div>
             </div>
 
             <div className="flex items-center justify-between mt-3 text-sm text-gray-600">
-              <span>{item.product.bids} bids</span>
-              <span>{item.product.views} views</span>
+              <span>{item.product.totalBids || 0} bids</span>
+              <span>{item.product.views || 0} views</span>
             </div>
-
-            {item.priceAlert && (
-              <div className="mt-3 p-2 bg-blue-50 rounded-lg">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <BellIcon className={`h-4 w-4 ${item.priceAlert.enabled ? 'text-blue-500' : 'text-gray-400'}`} />
-                    <span className="ml-1 text-sm">Price Alert: {formatPrice(item.priceAlert.targetPrice)}</span>
-                  </div>
-                  <button
-                    onClick={() => togglePriceAlert(item.id)}
-                    className={`text-xs px-2 py-1 rounded ${
-                      item.priceAlert.enabled 
-                        ? 'bg-blue-100 text-blue-700' 
-                        : 'bg-gray-100 text-gray-600'
-                    }`}
-                  >
-                    {item.priceAlert.enabled ? 'On' : 'Off'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {item.notes && (
-              <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-600">
-                {item.notes}
-              </div>
-            )}
 
             <div className="flex space-x-2 mt-4">
               <Link
@@ -275,9 +250,14 @@ const Wishlist = () => {
                 <EyeIcon className="inline h-4 w-4 mr-1" />
                 View Auction
               </Link>
-              <button className="flex-1 btn-outline text-sm">
-                Place Bid
-              </button>
+              {item.product.status === 'active' && (
+                <Link
+                  to={`/products/${item.product.id}`}
+                  className="flex-1 btn-outline text-center text-sm"
+                >
+                  Place Bid
+                </Link>
+              )}
             </div>
           </div>
         </motion.div>
@@ -292,7 +272,7 @@ const Wishlist = () => {
       >
         <div className="flex items-start space-x-4">
           <img
-            src={item.product.images[0]}
+            src={item.product.images?.[0] || 'https://via.placeholder.com/96'}
             alt={item.product.title}
             className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
           />
@@ -304,52 +284,34 @@ const Wishlist = () => {
                 </Link>
                 <p className="text-sm text-gray-600 mt-1">{item.product.category}</p>
                 <div className="flex items-center space-x-4 mt-2 text-sm text-gray-600">
-                  <span>{item.product.bids} bids</span>
-                  <span>{item.product.views} views</span>
-                  <span>Added {new Date(item.addedDate).toLocaleDateString()}</span>
+                  <span>{item.product.totalBids || 0} bids</span>
+                  <span>{item.product.views || 0} views</span>
+                  <span>Added {item.addedAt ? 
+                    new Date(item.addedAt._seconds ? item.addedAt._seconds * 1000 : item.addedAt).toLocaleDateString() : 
+                    'Unknown'}</span>
                 </div>
               </div>
               <div className="text-right">
                 <p className="text-xl font-bold text-primary-600">{formatPrice(item.product.currentPrice)}</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  <ClockIcon className="inline h-3 w-3" />
-                  <span className="ml-1">{timeRemaining}</span>
-                </p>
-                {isEndingSoon && (
-                  <span className="inline-block mt-1 bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
-                    Ending Soon!
+                {item.product.status === 'active' ? (
+                  <>
+                    <p className="text-sm text-gray-600 mt-1">
+                      <ClockIcon className="inline h-3 w-3" />
+                      <span className="ml-1">{timeRemaining}</span>
+                    </p>
+                    {isEndingSoon && (
+                      <span className="inline-block mt-1 bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">
+                        Ending Soon!
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="inline-block mt-1 bg-gray-100 text-gray-800 px-2 py-1 rounded-full text-xs font-medium">
+                    {item.product.status === 'ended' ? 'Ended' : 'Sold'}
                   </span>
                 )}
               </div>
             </div>
-
-            {item.priceAlert && (
-              <div className="mt-3 p-2 bg-blue-50 rounded-lg flex items-center justify-between">
-                <div className="flex items-center">
-                  <BellIcon className={`h-4 w-4 ${item.priceAlert.enabled ? 'text-blue-500' : 'text-gray-400'}`} />
-                  <span className="ml-1 text-sm">Price Alert: {formatPrice(item.priceAlert.targetPrice)}</span>
-                  {item.priceAlert.enabled && item.product.currentPrice <= item.priceAlert.targetPrice && (
-                    <span className="ml-2 text-sm text-green-600 font-medium">✓ Hit!</span>
-                  )}
-                </div>
-                <button
-                  onClick={() => togglePriceAlert(item.id)}
-                  className={`text-xs px-2 py-1 rounded ${
-                    item.priceAlert.enabled 
-                      ? 'bg-blue-100 text-blue-700' 
-                      : 'bg-gray-100 text-gray-600'
-                  }`}
-                >
-                  {item.priceAlert.enabled ? 'On' : 'Off'}
-                </button>
-              </div>
-            )}
-
-            {item.notes && (
-              <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-600">
-                {item.notes}
-              </div>
-            )}
 
             <div className="flex items-center justify-between mt-4">
               <div className="flex space-x-2">
@@ -360,16 +322,21 @@ const Wishlist = () => {
                   <EyeIcon className="inline h-4 w-4 mr-1" />
                   View
                 </Link>
-                <button className="btn-outline text-sm">
-                  Bid Now
-                </button>
+                {item.product.status === 'active' && (
+                  <Link
+                    to={`/products/${item.product.id}`}
+                    className="btn-outline text-sm"
+                  >
+                    Bid Now
+                  </Link>
+                )}
               </div>
               <div className="flex space-x-1">
                 <button className="p-1.5 hover:bg-gray-100 rounded transition-colors">
                   <ShareIcon className="h-4 w-4 text-gray-500" />
                 </button>
                 <button
-                  onClick={() => removeFromWishlist(item.id)}
+                  onClick={() => removeFromWishlist(item.product.id)}
                   className="p-1.5 hover:bg-red-100 rounded transition-colors"
                   title="Remove from wishlist"
                 >
@@ -399,7 +366,7 @@ const Wishlist = () => {
               My Wishlist
             </h1>
             <p className="text-gray-600 mt-2">
-              Keep track of auctions you're interested in and get notified when prices drop
+              Keep track of auctions you're interested in
             </p>
           </div>
           <div className="flex space-x-2">
@@ -468,7 +435,7 @@ const Wishlist = () => {
             <option value="all">All Categories</option>
             {categories.map(category => (
               <option key={category.id} value={category.id}>
-                {category.name}
+                {category.icon} {category.name}
               </option>
             ))}
           </select>
@@ -506,7 +473,11 @@ const Wishlist = () => {
       </div>
 
       {/* Wishlist Items */}
-      {sortedItems.length > 0 ? (
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        </div>
+      ) : sortedItems.length > 0 ? (
         <div className={viewMode === 'grid' 
           ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
           : "space-y-4"

@@ -22,6 +22,7 @@ import OrderDetail from './pages/OrderDetail'
 import Wishlist from './pages/Wishlist'
 import Notifications from './pages/Notifications'
 import Affiliate from './pages/Affiliate'
+import Checkout from './pages/Checkout'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentCancel from './pages/PaymentCancel'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -75,6 +76,7 @@ function App() {
           <Route path="create-auction" element={<CreateAuction />} />
           <Route path="my-bids" element={<MyBids />} />
           <Route path="my-auctions" element={<MyAuctions />} />
+          <Route path="checkout" element={<Checkout />} />
           <Route path="orders" element={<Orders />} />
           <Route path="orders/:id" element={<OrderDetail />} />
           <Route path="wishlist" element={<Wishlist />} />

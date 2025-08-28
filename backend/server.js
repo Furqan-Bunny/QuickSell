@@ -89,6 +89,7 @@ const orderRoutes = require('./routes/orders-firebase');
 const categoryRoutes = require('./routes/categories-firebase');
 const paymentRoutes = require('./routes/payments');
 const payfastRoutes = require('./routes/payments-payfast');
+const walletRoutes = require('./routes/payments-wallet');
 const adminRoutes = require('./routes/admin-firebase');
 // const notificationRoutes = require('./routes/notifications'); // Need to convert to Firebase
 
@@ -102,6 +103,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/payments/payfast', payfastRoutes);
+app.use('/api/payments/wallet', walletRoutes);
 app.use('/api/admin', adminRoutes);
 // app.use('/api/notifications', notificationRoutes);
 

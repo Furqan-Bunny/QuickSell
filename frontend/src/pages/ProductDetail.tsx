@@ -145,7 +145,7 @@ const ProductDetail = () => {
     }
   }
 
-  const handleBuyNow = async (paymentMethod: string = 'payfast') => {
+  const handleBuyNow = () => {
     if (!isAuthenticated) {
       toast.error('Please login to buy now')
       navigate('/login')
@@ -153,83 +153,20 @@ const ProductDetail = () => {
     }
 
     const amount = product.buyNowPrice || product.currentPrice
-
-    try {
-      // First create the order
-      const orderResponse = await axios.post('/api/orders', {
-        productId: product.id,
-        type: 'buy_now',
-        amount: amount,
-        paymentMethod: paymentMethod
-      })
-
-      if (!orderResponse.data.success) {
-        throw new Error('Failed to create order')
-      }
-
-      const orderId = orderResponse.data.data.id
-
-      // Use Payfast as default payment method
-      if (paymentMethod === 'payfast') {
-        const response = await axios.post('/api/payments/payfast/initialize', {
-          orderId: orderId,
-          amount: amount,
-          itemName: product.title,
-          itemDescription: product.description?.substring(0, 255)
-        })
-
-        if (response.data.success && response.data.data) {
-          toast.success('Redirecting to PayFast...')
-          
-          // Create form and submit to PayFast
-          const form = document.createElement('form')
-          form.method = 'POST'
-          form.action = response.data.data.paymentUrl
-          
-          Object.keys(response.data.data.paymentData).forEach(key => {
-            const input = document.createElement('input')
-            input.type = 'hidden'
-            input.name = key
-            input.value = response.data.data.paymentData[key]
-            form.appendChild(input)
-          })
-          
-          document.body.appendChild(form)
-          form.submit()
-        } else {
-          toast.error('Failed to initialize payment')
-        }
-      } else {
-        // Fallback to Flutterwave
-        const response = await axios.post('/api/payments/flutterwave/initialize', {
+    
+    // Navigate to checkout page with product details
+    navigate('/checkout', {
+      state: {
+        item: {
           productId: product.id,
-          amount: amount,
-          currency: 'ZAR',
-          redirectUrl: `${window.location.origin}/payment/success`,
-          cancelUrl: `${window.location.origin}/payment/cancel`,
-          customerDetails: {
-            email: user?.email,
-            name: `${user?.firstName} ${user?.lastName}`,
-            phoneNumber: ''
-          },
-          metadata: {
-            productTitle: product.title,
-            sellerId: product.seller?._id,
-            buyerId: user?.id
-          }
-        })
-        
-        if (response.data.status === 'success' && response.data.data?.link) {
-          toast.success('Redirecting to payment...')
-          window.location.href = response.data.data.link
-        } else {
-          toast.error('Failed to initialize payment')
+          title: product.title,
+          image: product.images?.[0] || 'https://via.placeholder.com/200',
+          price: amount,
+          sellerId: product.sellerId || product.seller?.id,
+          type: 'buy_now'
         }
       }
-    } catch (error) {
-      console.error('Payment initialization error:', error)
-      toast.error('Failed to process payment. Please try again.')
-    }
+    })
   }
 
   const handleWishlist = async () => {
@@ -402,7 +339,7 @@ const ProductDetail = () => {
                     </div>
                   </div>
                   <button
-                    onClick={() => handleBuyNow('payfast')}
+                    onClick={handleBuyNow}
                     className="btn-secondary"
                     disabled={isAuctionEnded}
                   >

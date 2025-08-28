@@ -26,8 +26,10 @@ const generateSignature = (data, passphrase = null) => {
   let pfOutput = '';
   for (let key in data) {
     if (data.hasOwnProperty(key)) {
-      if (data[key] !== '') {
-        pfOutput += `${key}=${encodeURIComponent(data[key].toString().trim()).replace(/%20/g, '+')}&`;
+      // Check if value exists and is not empty
+      if (data[key] !== undefined && data[key] !== null && data[key] !== '') {
+        const value = String(data[key]).trim();
+        pfOutput += `${key}=${encodeURIComponent(value).replace(/%20/g, '+')}&`;
       }
     }
   }
@@ -90,8 +92,8 @@ router.post('/initialize', authMiddleware, async (req, res) => {
       amount: amountInRands,
       item_name: itemName ? itemName.substring(0, 100) : 'Quicksell Purchase', // PayFast limit with null check
       item_description: itemDescription ? itemDescription.substring(0, 255) : '', // PayFast limit
-      custom_int1: orderId, // Store order ID
-      custom_str1: userId, // Store user ID
+      custom_str1: orderId, // Store order ID as string (Firebase IDs are strings)
+      custom_str2: userId, // Store user ID
       email_confirmation: 1,
       confirmation_address: userData.email || ''
     };

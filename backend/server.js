@@ -21,22 +21,31 @@ const io = socketIO(server, {
 });
 
 // Trust proxy - required for Render and other cloud services
-app.set('trust proxy', 1); // Trust first proxy only
+// Set to the number of proxies between the server and the client
+app.set('trust proxy', 1);
 
-// Rate limiting with proper configuration for trusted proxy
+// Rate limiting - disable validation to prevent startup crash
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  // Skip rate limiting in development
-  skip: (req) => process.env.NODE_ENV === 'development',
-  // Explicitly handle the trusted proxy scenario
+  validate: false, // Disable validation to prevent trust proxy error
+  // Custom key generator that safely handles proxy scenarios
   keyGenerator: (req) => {
-    // Use x-forwarded-for header from trusted proxy
-    return req.headers['x-forwarded-for']?.split(',')[0].trim() || 
-           req.connection.remoteAddress || 
-           req.ip;
+    // Get the real IP from X-Forwarded-For or fall back to connection IP
+    const forwarded = req.headers['x-forwarded-for'];
+    if (forwarded) {
+      // Take the first IP if there are multiple (client IP is first)
+      return forwarded.split(',')[0].trim();
+    }
+    return req.connection.remoteAddress || req.socket.remoteAddress || req.ip || 'unknown';
+  },
+  handler: (req, res) => {
+    res.status(429).json({
+      error: 'Too many requests, please try again later.',
+      retryAfter: Math.ceil(req.rateLimit.resetTime / 1000)
+    });
   }
 });
 
@@ -138,10 +147,27 @@ io.on('connection', (socket) => {
 // Make io accessible to routes
 app.set('io', io);
 
-// Error handling middleware
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+// Error handling middleware - ensure CORS headers are set
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+  console.error('Error:', err.message);
+  console.error('Stack:', err.stack);
+  
+  // Ensure CORS headers are set even on errors
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Access-Control-Allow-Credentials', 'true');
+  }
+  
+  res.status(err.status || 500).json({ 
+    error: err.message || 'Something went wrong!',
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
 });
 
 const PORT = process.env.PORT || 5000;

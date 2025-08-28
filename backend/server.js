@@ -98,7 +98,7 @@ if (!db) {
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users-firebase');
-const productRoutes = require('./routes/products-simple'); // Keep simple version for now
+const productRoutes = require('./routes/products-firebase'); // Use Firebase version with image upload
 const affiliateRoutes = require('./routes/affiliate');
 const bidRoutes = require('./routes/bids-firebase');
 const orderRoutes = require('./routes/orders-firebase');

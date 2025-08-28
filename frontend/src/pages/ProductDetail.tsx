@@ -9,6 +9,7 @@ import { format } from 'date-fns'
 import ImageGallery from 'react-image-gallery'
 import Countdown from 'react-countdown'
 import createSocket from '../config/socket'
+import BiddingSection from '../components/BiddingSection'
 import {
   HeartIcon,
   ShareIcon,

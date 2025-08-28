@@ -159,7 +159,7 @@ const MyAuctions = () => {
   ]
 
   // Check if user has seller role or is admin
-  const canSell = user?.role === 'admin' || user?.role === 'seller'
+  const canSell = user?.role === 'admin' || (user?.role as any) === 'seller'
 
   if (!canSell) {
     return (
@@ -264,7 +264,7 @@ const MyAuctions = () => {
             const endDate = product.endDate?._seconds 
               ? new Date(product.endDate._seconds * 1000) 
               : new Date(product.endDate || new Date())
-            const timeRemaining = product.status === 'active' ? getTimeRemaining(endDate) : null
+            const timeRemaining = product.status === 'active' ? getTimeRemaining(endDate.toISOString()) : null
 
             return (
               <div key={product.id} className="card hover:shadow-lg transition-shadow">

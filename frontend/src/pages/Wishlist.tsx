@@ -176,7 +176,7 @@ const Wishlist = () => {
     const endDate = item.product.endDate?._seconds ? 
       new Date(item.product.endDate._seconds * 1000) : 
       new Date(item.product.endDate || new Date())
-    const timeRemaining = getTimeRemaining(endDate)
+    const timeRemaining = getTimeRemaining(endDate.toISOString())
     const isEndingSoon = endDate.getTime() - new Date().getTime() < 24 * 60 * 60 * 1000
 
     if (isGrid) {

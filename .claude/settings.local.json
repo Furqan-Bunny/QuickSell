@@ -6,7 +6,8 @@
       "Bash(mongod:*)",
       "Bash(npm run build:*)",
       "Bash(touch:*)",
-      "Bash(npm run dev:*)"
+      "Bash(npm run dev:*)",
+      "Bash(firebase deploy:*)"
     ],
     "deny": [],
     "ask": []

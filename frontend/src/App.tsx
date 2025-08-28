@@ -15,6 +15,7 @@ import ProductDetail from './pages/ProductDetail'
 import Dashboard from './pages/Dashboard'
 import Profile from './pages/Profile'
 import CreateAuction from './pages/CreateAuction'
+import EditProduct from './pages/EditProduct'
 import MyBids from './pages/MyBids'
 import MyAuctions from './pages/MyAuctions'
 import Orders from './pages/Orders'
@@ -50,6 +51,8 @@ function App() {
         <Route path="dashboard" element={<AdminDashboard />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="products" element={<AdminProducts />} />
+        <Route path="products/create" element={<CreateAuction />} />
+        <Route path="products/edit/:productId" element={<EditProduct />} />
         <Route path="orders" element={<AdminOrders />} />
         <Route path="categories" element={<AdminCategories />} />
         <Route path="reports" element={<AdminReports />} />

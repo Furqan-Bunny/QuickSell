@@ -51,10 +51,10 @@ router.post('/initialize', authMiddleware, async (req, res) => {
     const userId = req.user.uid;
 
     // Validate input
-    if (!orderId || !amount || !itemName) {
+    if (!orderId || !amount) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields'
+        message: 'Missing required fields: orderId and amount are required'
       });
     }
 
@@ -83,17 +83,17 @@ router.post('/initialize', authMiddleware, async (req, res) => {
       return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/success?order_id=${orderId}&method=payfast&payment_id=${paymentId}`,
       cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/cancel?order_id=${orderId}`,
       notify_url: `${process.env.SERVER_URL || 'http://localhost:5000'}/api/payments/payfast/notify`,
-      name_first: userData.name?.split(' ')[0] || '',
-      name_last: userData.name?.split(' ')[1] || '',
-      email_address: userData.email,
+      name_first: userData.firstName || userData.name?.split(' ')[0] || 'Customer',
+      name_last: userData.lastName || userData.name?.split(' ')[1] || '',
+      email_address: userData.email || '',
       m_payment_id: paymentId,
       amount: amountInRands,
-      item_name: itemName.substring(0, 100), // PayFast limit
+      item_name: itemName ? itemName.substring(0, 100) : 'Quicksell Purchase', // PayFast limit with null check
       item_description: itemDescription ? itemDescription.substring(0, 255) : '', // PayFast limit
       custom_int1: orderId, // Store order ID
       custom_str1: userId, // Store user ID
       email_confirmation: 1,
-      confirmation_address: userData.email
+      confirmation_address: userData.email || ''
     };
 
     // Generate signature

@@ -68,6 +68,7 @@ router.get('/dashboard', authMiddleware, async (req, res) => {
         .where('buyerId', '==', userId)
         .limit(5)
         .get();
+    }
     
     // Get user's watchlist
     const watchlistSnapshot = await db.collection('watchlist')

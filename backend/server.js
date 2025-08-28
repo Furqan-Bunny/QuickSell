@@ -88,7 +88,8 @@ const bidRoutes = require('./routes/bids-firebase');
 const orderRoutes = require('./routes/orders-firebase');
 const categoryRoutes = require('./routes/categories-firebase');
 const paymentRoutes = require('./routes/payments');
-// const adminRoutes = require('./routes/admin'); // Need to convert to Firebase
+const payfastRoutes = require('./routes/payments-payfast');
+const adminRoutes = require('./routes/admin-firebase');
 // const notificationRoutes = require('./routes/notifications'); // Need to convert to Firebase
 
 // Routes
@@ -100,7 +101,8 @@ app.use('/api/bids', bidRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/payments', paymentRoutes);
-// app.use('/api/admin', adminRoutes);
+app.use('/api/payments/payfast', payfastRoutes);
+app.use('/api/admin', adminRoutes);
 // app.use('/api/notifications', notificationRoutes);
 
 // Socket.io for real-time bidding

@@ -1,111 +1,205 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
-import { 
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
-  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer 
-} from 'recharts'
+import { useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../../store/authStore'
+import axios from 'axios'
 import {
-  CurrencyDollarIcon,
-  UserGroupIcon,
-  ShoppingBagIcon,
+  UsersIcon,
+  CubeIcon,
   ChartBarIcon,
-  ArrowTrendingUpIcon,
-  ArrowTrendingDownIcon,
+  CurrencyDollarIcon,
   ClockIcon,
   CheckCircleIcon,
   XCircleIcon,
+  ExclamationCircleIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ShoppingBagIcon,
+  TagIcon,
+  UserGroupIcon,
   EyeIcon
 } from '@heroicons/react/24/outline'
-import { mockProducts, formatPrice } from '../../data/mockData'
+import toast from 'react-hot-toast'
 
-interface StatCard {
-  title: string
-  value: string | number
-  change: number
-  icon: any
-  color: string
+interface DashboardStats {
+  users: {
+    total: number
+    active: number
+    sellers: number
+    new: number
+    growth: number
+  }
+  products: {
+    total: number
+    active: number
+    pending: number
+    sold: number
+    growth: number
+  }
+  revenue: {
+    total: number
+    monthly: number
+    fees: number
+    growth: number
+  }
+  activity: {
+    totalBids: number
+    totalOrders: number
+    avgBidAmount: number
+    conversionRate: number
+  }
+}
+
+interface RecentActivity {
+  type: string
+  message: string
+  timestamp: Date
+  icon?: any
+  color?: string
 }
 
 const AdminDashboard = () => {
-  const [stats, setStats] = useState({
-    totalRevenue: 1250000,
-    totalUsers: 10234,
-    totalProducts: 156,
-    totalOrders: 892,
-    pendingOrders: 23,
-    activeAuctions: 45
-  })
+  const { user } = useAuthStore()
+  const navigate = useNavigate()
+  const [loading, setLoading] = useState(true)
+  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
+  const [pendingProducts, setPendingProducts] = useState<any[]>([])
+  const [topSellers, setTopSellers] = useState<any[]>([])
 
-  const [revenueData] = useState([
-    { month: 'Jan', revenue: 85000 },
-    { month: 'Feb', revenue: 95000 },
-    { month: 'Mar', revenue: 110000 },
-    { month: 'Apr', revenue: 105000 },
-    { month: 'May', revenue: 125000 },
-    { month: 'Jun', revenue: 140000 }
-  ])
+  useEffect(() => {
+    if (user?.role !== 'admin') {
+      navigate('/')
+      toast.error('Admin access required')
+      return
+    }
+    loadDashboardData()
+  }, [user])
 
-  const [categoryData] = useState([
-    { name: 'Electronics', value: 35, color: '#3B82F6' },
-    { name: 'Fashion', value: 25, color: '#10B981' },
-    { name: 'Vehicles', value: 20, color: '#F59E0B' },
-    { name: 'Home & Garden', value: 12, color: '#EF4444' },
-    { name: 'Others', value: 8, color: '#8B5CF6' }
-  ])
+  const loadDashboardData = async () => {
+    setLoading(true)
+    try {
+      const response = await axios.get('/api/admin/dashboard')
+      if (response.data.success) {
+        const data = response.data.data
+        setStats(data.stats)
+        setRecentActivity(data.recentActivity || [])
+        setPendingProducts(data.pendingProducts || [])
+        setTopSellers(data.topSellers || [])
+      }
+    } catch (error) {
+      console.error('Error loading dashboard:', error)
+      toast.error('Failed to load dashboard data')
+    } finally {
+      setLoading(false)
+    }
+  }
 
-  const [userActivityData] = useState([
-    { day: 'Mon', logins: 234, registrations: 12 },
-    { day: 'Tue', logins: 256, registrations: 18 },
-    { day: 'Wed', logins: 289, registrations: 23 },
-    { day: 'Thu', logins: 312, registrations: 15 },
-    { day: 'Fri', logins: 345, registrations: 28 },
-    { day: 'Sat', logins: 378, registrations: 34 },
-    { day: 'Sun', logins: 290, registrations: 20 }
-  ])
+  const handleApproveProduct = async (productId: string) => {
+    try {
+      const response = await axios.put(`/api/admin/products/${productId}/approve`)
+      if (response.data.success) {
+        toast.success('Product approved')
+        setPendingProducts(prev => prev.filter(p => p.id !== productId))
+      }
+    } catch (error) {
+      console.error('Error approving product:', error)
+      toast.error('Failed to approve product')
+    }
+  }
 
-  const [recentOrders] = useState([
-    { id: 'ORD001', buyer: 'John Doe', product: 'iPhone 14 Pro', amount: 16500, status: 'completed', date: '2024-01-20' },
-    { id: 'ORD002', buyer: 'Jane Smith', product: 'MacBook Pro M2', amount: 28000, status: 'pending', date: '2024-01-20' },
-    { id: 'ORD003', buyer: 'Mike Johnson', product: 'Nike Air Jordan', amount: 4200, status: 'completed', date: '2024-01-19' },
-    { id: 'ORD004', buyer: 'Sarah Williams', product: 'Samsung TV', amount: 6500, status: 'processing', date: '2024-01-19' },
-    { id: 'ORD005', buyer: 'Chris Brown', product: 'Weber Braai', amount: 8000, status: 'completed', date: '2024-01-18' }
-  ])
+  const handleRejectProduct = async (productId: string) => {
+    try {
+      const response = await axios.put(`/api/admin/products/${productId}/reject`)
+      if (response.data.success) {
+        toast.success('Product rejected')
+        setPendingProducts(prev => prev.filter(p => p.id !== productId))
+      }
+    } catch (error) {
+      console.error('Error rejecting product:', error)
+      toast.error('Failed to reject product')
+    }
+  }
 
-  const [topProducts] = useState([
-    { name: 'iPhone 14 Pro Max', bids: 234, views: 1567, revenue: 125000 },
-    { name: '2019 VW Polo GTI', bids: 89, views: 3456, revenue: 285000 },
-    { name: 'Krugerrand Collection', bids: 45, views: 2890, revenue: 125000 },
-    { name: 'Springboks Jersey', bids: 156, views: 4567, revenue: 62000 }
-  ])
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(amount)
+  }
 
-  const statCards: StatCard[] = [
-    {
-      title: 'Total Revenue',
-      value: formatPrice(stats.totalRevenue),
-      change: 12.5,
-      icon: CurrencyDollarIcon,
-      color: 'bg-green-500'
-    },
+  const formatPercentage = (value: number) => {
+    return `${value > 0 ? '+' : ''}${value.toFixed(1)}%`
+  }
+
+  const getActivityIcon = (type: string) => {
+    const icons: Record<string, any> = {
+      user_signup: UsersIcon,
+      product_listed: CubeIcon,
+      bid_placed: ClockIcon,
+      order_completed: CheckCircleIcon,
+      product_sold: CurrencyDollarIcon
+    }
+    return icons[type] || ExclamationCircleIcon
+  }
+
+  const getActivityColor = (type: string) => {
+    const colors: Record<string, string> = {
+      user_signup: 'text-blue-600',
+      product_listed: 'text-purple-600',
+      bid_placed: 'text-yellow-600',
+      order_completed: 'text-green-600',
+      product_sold: 'text-emerald-600'
+    }
+    return colors[type] || 'text-gray-600'
+  }
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+
+  const statCards = [
     {
       title: 'Total Users',
-      value: stats.totalUsers.toLocaleString(),
-      change: 8.2,
-      icon: UserGroupIcon,
-      color: 'bg-blue-500'
+      value: stats?.users.total || 0,
+      change: stats?.users.growth || 0,
+      icon: UsersIcon,
+      color: 'bg-blue-500',
+      subtext: `${stats?.users.active || 0} active`,
+      link: '/admin/users'
     },
     {
-      title: 'Active Auctions',
-      value: stats.activeAuctions,
-      change: -3.1,
-      icon: ClockIcon,
-      color: 'bg-purple-500'
+      title: 'Total Products',
+      value: stats?.products.total || 0,
+      change: stats?.products.growth || 0,
+      icon: CubeIcon,
+      color: 'bg-purple-500',
+      subtext: `${stats?.products.pending || 0} pending`,
+      link: '/admin/products'
+    },
+    {
+      title: 'Total Revenue',
+      value: formatCurrency(stats?.revenue.total || 0),
+      change: stats?.revenue.growth || 0,
+      icon: CurrencyDollarIcon,
+      color: 'bg-green-500',
+      subtext: `${formatCurrency(stats?.revenue.monthly || 0)} this month`,
+      link: '/admin/revenue'
     },
     {
       title: 'Total Orders',
-      value: stats.totalOrders,
-      change: 15.7,
+      value: stats?.activity.totalOrders || 0,
+      change: stats?.activity.conversionRate || 0,
       icon: ShoppingBagIcon,
-      color: 'bg-orange-500'
+      color: 'bg-orange-500',
+      subtext: `${stats?.activity.totalBids || 0} total bids`,
+      link: '/admin/orders'
     }
   ]
 
@@ -117,35 +211,44 @@ const AdminDashboard = () => {
       className="space-y-6"
     >
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back! Here's what's happening with your platform today.</p>
+      <div className="bg-gradient-to-r from-primary-600 to-primary-800 rounded-xl p-6 text-white">
+        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <p className="text-primary-100 mt-2">
+          Monitor and manage your platform
+        </p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((stat, index) => (
           <motion.div
             key={stat.title}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="card"
+            onClick={() => navigate(stat.link)}
+            className="card hover:shadow-lg cursor-pointer transition-all"
           >
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
                 <p className="text-sm text-gray-600">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-                <div className="flex items-center mt-2">
-                  {stat.change > 0 ? (
-                    <ArrowTrendingUpIcon className="h-4 w-4 text-green-500 mr-1" />
-                  ) : (
-                    <ArrowTrendingDownIcon className="h-4 w-4 text-red-500 mr-1" />
-                  )}
-                  <span className={`text-sm ${stat.change > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                    {Math.abs(stat.change)}%
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stat.value}
+                </p>
+                <div className="flex items-center mt-2 space-x-2">
+                  <span className={`text-sm font-medium ${
+                    stat.change >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {stat.change >= 0 ? (
+                      <ArrowUpIcon className="inline h-3 w-3" />
+                    ) : (
+                      <ArrowDownIcon className="inline h-3 w-3" />
+                    )}
+                    {formatPercentage(Math.abs(stat.change))}
                   </span>
-                  <span className="text-xs text-gray-500 ml-1">vs last month</span>
+                  <span className="text-xs text-gray-500">
+                    {stat.subtext}
+                  </span>
                 </div>
               </div>
               <div className={`${stat.color} p-3 rounded-lg bg-opacity-10`}>
@@ -156,152 +259,171 @@ const AdminDashboard = () => {
         ))}
       </div>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Revenue Overview</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={revenueData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => formatPrice(Number(value))} />
-              <Legend />
-              <Line type="monotone" dataKey="revenue" stroke="#3B82F6" strokeWidth={2} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Category Distribution */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Sales by Category</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={(entry) => `${entry.name}: ${entry.value}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* User Activity Chart */}
-      <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">User Activity This Week</h2>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={userActivityData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="day" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="logins" fill="#3B82F6" />
-            <Bar dataKey="registrations" fill="#10B981" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Tables Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Orders */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Orders</h2>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Buyer</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {recentOrders.map((order) => (
-                  <tr key={order.id}>
-                    <td className="px-4 py-2 text-sm font-medium text-gray-900">{order.id}</td>
-                    <td className="px-4 py-2 text-sm text-gray-600">{order.buyer}</td>
-                    <td className="px-4 py-2 text-sm text-gray-900">{formatPrice(order.amount)}</td>
-                    <td className="px-4 py-2">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                        order.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-blue-100 text-blue-800'
-                      }`}>
-                        {order.status === 'completed' && <CheckCircleIcon className="h-3 w-3 mr-1" />}
-                        {order.status === 'pending' && <ClockIcon className="h-3 w-3 mr-1" />}
-                        {order.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Pending Products */}
+        <div className="lg:col-span-2 card">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              Pending Approval
+            </h2>
+            <button
+              onClick={() => navigate('/admin/products?status=pending')}
+              className="text-sm text-primary-600 hover:text-primary-700"
+            >
+              View All
+            </button>
           </div>
-        </div>
 
-        {/* Top Products */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">Top Products</h2>
-          <div className="space-y-3">
-            {topProducts.map((product, index) => (
-              <div key={product.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                    <span className="text-sm font-semibold text-primary-600">#{index + 1}</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{product.name}</p>
-                    <div className="flex items-center space-x-3 mt-1">
-                      <span className="text-xs text-gray-500 flex items-center">
-                        <EyeIcon className="h-3 w-3 mr-1" />
-                        {product.views} views
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {product.bids} bids
-                      </span>
+          {pendingProducts.length > 0 ? (
+            <div className="space-y-3">
+              {pendingProducts.slice(0, 5).map((product) => (
+                <div key={product.id} className="border rounded-lg p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <img
+                        src={product.images?.[0] || 'https://via.placeholder.com/50'}
+                        alt={product.title}
+                        className="w-12 h-12 object-cover rounded"
+                      />
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {product.title}
+                        </h3>
+                        <p className="text-sm text-gray-500">
+                          by {product.sellerName || 'Unknown'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleApproveProduct(product.id)}
+                        className="px-3 py-1 bg-green-100 text-green-700 rounded-md text-sm hover:bg-green-200"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleRejectProduct(product.id)}
+                        className="px-3 py-1 bg-red-100 text-red-700 rounded-md text-sm hover:bg-red-200"
+                      >
+                        Reject
+                      </button>
                     </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-semibold text-gray-900">{formatPrice(product.revenue)}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">
+              No pending products
+            </p>
+          )}
+        </div>
+
+        {/* Recent Activity */}
+        <div className="card">
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Recent Activity
+          </h2>
+          
+          {recentActivity.length > 0 ? (
+            <div className="space-y-3">
+              {recentActivity.slice(0, 8).map((activity, index) => {
+                const Icon = getActivityIcon(activity.type)
+                const colorClass = getActivityColor(activity.type)
+                
+                return (
+                  <div key={index} className="flex items-start space-x-3">
+                    <Icon className={`h-5 w-5 mt-0.5 ${colorClass}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-900">
+                        {activity.message}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(activity.timestamp).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">
+              No recent activity
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* Top Sellers */}
       <div className="card">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <button className="btn-primary">
-            Add Product
-          </button>
-          <button className="btn-outline">
-            View All Orders
-          </button>
-          <button className="btn-outline">
-            Manage Users
-          </button>
-          <button className="btn-outline">
-            Generate Report
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-900">
+            Top Sellers
+          </h2>
+          <button
+            onClick={() => navigate('/admin/users?role=seller')}
+            className="text-sm text-primary-600 hover:text-primary-700"
+          >
+            View All Sellers
           </button>
         </div>
+
+        {topSellers.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {topSellers.map((seller) => (
+              <div key={seller.id} className="text-center">
+                <img
+                  src={seller.profileImage || `https://ui-avatars.com/api/?name=${seller.name}`}
+                  alt={seller.name}
+                  className="w-16 h-16 rounded-full mx-auto mb-2"
+                />
+                <h3 className="font-medium text-gray-900">{seller.name}</h3>
+                <p className="text-sm text-gray-500">
+                  {seller.totalSales} sales
+                </p>
+                <p className="text-sm font-semibold text-primary-600">
+                  {formatCurrency(seller.revenue)}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-center py-8">
+            No seller data available
+          </p>
+        )}
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <button
+          onClick={() => navigate('/admin/users')}
+          className="card hover:shadow-lg transition-all text-center py-4"
+        >
+          <UserGroupIcon className="h-8 w-8 mx-auto mb-2 text-primary-600" />
+          <span className="text-sm font-medium">Manage Users</span>
+        </button>
+        <button
+          onClick={() => navigate('/admin/products')}
+          className="card hover:shadow-lg transition-all text-center py-4"
+        >
+          <CubeIcon className="h-8 w-8 mx-auto mb-2 text-primary-600" />
+          <span className="text-sm font-medium">Manage Products</span>
+        </button>
+        <button
+          onClick={() => navigate('/admin/categories')}
+          className="card hover:shadow-lg transition-all text-center py-4"
+        >
+          <TagIcon className="h-8 w-8 mx-auto mb-2 text-primary-600" />
+          <span className="text-sm font-medium">Categories</span>
+        </button>
+        <button
+          onClick={() => navigate('/admin/settings')}
+          className="card hover:shadow-lg transition-all text-center py-4"
+        >
+          <ChartBarIcon className="h-8 w-8 mx-auto mb-2 text-primary-600" />
+          <span className="text-sm font-medium">Analytics</span>
+        </button>
       </div>
     </motion.div>
   )

@@ -127,25 +127,12 @@ app.use('/api/payments/verification', paymentVerificationRoutes);
 app.use('/api/admin', adminRoutes);
 // app.use('/api/notifications', notificationRoutes);
 
-// Socket.io for real-time bidding
-io.on('connection', (socket) => {
-  console.log('New client connected');
+// Initialize Socket.io service
+const socketService = require('./services/socketService');
+socketService.initialize(server);
 
-  socket.on('join-auction', (auctionId) => {
-    socket.join(`auction-${auctionId}`);
-  });
-
-  socket.on('place-bid', (bidData) => {
-    io.to(`auction-${bidData.productId}`).emit('new-bid', bidData);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('Client disconnected');
-  });
-});
-
-// Make io accessible to routes
-app.set('io', io);
+// Make socket service accessible to routes
+app.set('socketService', socketService);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

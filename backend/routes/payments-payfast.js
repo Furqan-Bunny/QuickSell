@@ -49,6 +49,8 @@ const generateSignature = (data, passphrase = null) => {
 // Initialize PayFast payment
 router.post('/initialize', authMiddleware, async (req, res) => {
   try {
+    console.log('PayFast initialize request:', { orderId: req.body.orderId, amount: req.body.amount });
+    
     const { orderId, amount, itemName, itemDescription } = req.body;
     const userId = req.user.uid;
 
@@ -70,7 +72,15 @@ router.post('/initialize', authMiddleware, async (req, res) => {
     }
 
     const userData = userDoc.data();
+    console.log('User data retrieved:', { email: userData.email, hasName: !!userData.name });
+    
     const config = getPayfastConfig();
+    console.log('PayFast config:', { 
+      hasMerchantId: !!config.merchantId, 
+      hasMerchantKey: !!config.merchantKey,
+      hasPassphrase: !!config.passphrase,
+      url: config.url 
+    });
 
     // Calculate amount in cents (PayFast uses Rands with 2 decimal places)
     const amountInRands = parseFloat(amount).toFixed(2);
@@ -78,29 +88,46 @@ router.post('/initialize', authMiddleware, async (req, res) => {
     // Create unique payment ID
     const paymentId = `PF_${Date.now()}_${orderId}`;
 
-    // Build PayFast data
-    const payfastData = {
-      merchant_id: config.merchantId,
-      merchant_key: config.merchantKey,
-      return_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/success?order_id=${orderId}&method=payfast&payment_id=${paymentId}`,
-      cancel_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/payment/cancel?order_id=${orderId}`,
-      notify_url: `${process.env.SERVER_URL || 'http://localhost:5000'}/api/payments/payfast/notify`,
-      name_first: userData.firstName || userData.name?.split(' ')[0] || 'Customer',
-      name_last: userData.lastName || userData.name?.split(' ')[1] || '',
-      email_address: userData.email || '',
-      m_payment_id: paymentId,
-      amount: amountInRands,
-      item_name: itemName ? itemName.substring(0, 100) : 'Quicksell Purchase', // PayFast limit with null check
-      item_description: itemDescription ? itemDescription.substring(0, 255) : '', // PayFast limit
-      custom_str1: orderId, // Store order ID as string (Firebase IDs are strings)
-      custom_str2: userId, // Store user ID
-      email_confirmation: 1,
-      confirmation_address: userData.email || ''
-    };
+    // Build PayFast data - ensure all values are defined
+    const payfastData = {};
+    
+    // Required fields - use fallback values if config is missing
+    payfastData.merchant_id = config.merchantId || process.env.PAYFAST_MERCHANT_ID || '24863159';
+    payfastData.merchant_key = config.merchantKey || process.env.PAYFAST_MERCHANT_KEY || 'szqalyn9ghk4k';
+    payfastData.return_url = `${process.env.FRONTEND_URL || 'https://quicksell-80aad.web.app'}/payment/success?order_id=${orderId}&method=payfast&payment_id=${paymentId}`;
+    payfastData.cancel_url = `${process.env.FRONTEND_URL || 'https://quicksell-80aad.web.app'}/payment/cancel?order_id=${orderId}`;
+    payfastData.notify_url = `${process.env.SERVER_URL || 'https://quicksell-1-4020.onrender.com'}/api/payments/payfast/notify`;
+    
+    // User details with safe access
+    const userFirstName = userData.firstName || (userData.name ? userData.name.split(' ')[0] : '') || 'Customer';
+    const userLastName = userData.lastName || (userData.name && userData.name.split(' ').length > 1 ? userData.name.split(' ')[1] : '') || '';
+    
+    payfastData.name_first = userFirstName;
+    payfastData.name_last = userLastName;
+    payfastData.email_address = userData.email || '';
+    
+    // Payment details
+    payfastData.m_payment_id = paymentId;
+    payfastData.amount = amountInRands;
+    payfastData.item_name = (itemName && itemName.length > 0) ? itemName.substring(0, 100) : 'Quicksell Purchase';
+    payfastData.item_description = (itemDescription && itemDescription.length > 0) ? itemDescription.substring(0, 255) : '';
+    
+    // Custom fields
+    if (orderId) payfastData.custom_str1 = String(orderId);
+    if (userId) payfastData.custom_str2 = String(userId);
+    
+    // Email confirmation
+    payfastData.email_confirmation = '1';
+    if (userData.email) payfastData.confirmation_address = userData.email;
+    
+    console.log('PayFast data before signature:', Object.keys(payfastData));
 
-    // Generate signature
-    const signature = generateSignature(payfastData, config.passphrase);
+    // Generate signature - use passphrase if available
+    const passphrase = config.passphrase || process.env.PAYFAST_PASSPHRASE || 'Quicksell-Minzolor1';
+    const signature = generateSignature(payfastData, passphrase);
     payfastData.signature = signature;
+    
+    console.log('PayFast signature generated');
 
     // Save payment record to Firebase
     await db.collection('payments').doc(paymentId).set({
@@ -131,10 +158,12 @@ router.post('/initialize', authMiddleware, async (req, res) => {
 
   } catch (error) {
     console.error('PayFast initialization error:', error);
+    console.error('Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Failed to initialize payment',
-      error: error.message
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -149,9 +178,12 @@ router.post('/notify', async (req, res) => {
 
     // Verify signature
     const pfParamString = Object.keys(pfData)
-      .filter(key => key !== 'signature')
+      .filter(key => key !== 'signature' && pfData[key] !== undefined && pfData[key] !== null)
       .sort()
-      .map(key => `${key}=${encodeURIComponent(pfData[key].toString().trim()).replace(/%20/g, '+')}`)
+      .map(key => {
+        const value = String(pfData[key]).trim();
+        return `${key}=${encodeURIComponent(value).replace(/%20/g, '+')}`;
+      })
       .join('&');
 
     const signatureString = config.passphrase ? 

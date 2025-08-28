@@ -36,10 +36,37 @@ class AuctionScheduler {
       const now = new Date();
       
       // Find all active auctions that have ended
-      const expiredProductsSnapshot = await db.collection('products')
-        .where('status', '==', 'active')
-        .where('endDate', '<=', now)
-        .get();
+      let expiredProductsSnapshot;
+      try {
+        expiredProductsSnapshot = await db.collection('products')
+          .where('status', '==', 'active')
+          .where('endDate', '<=', now)
+          .get();
+      } catch (indexError) {
+        // Fallback: Get all active products and filter manually
+        console.log('Index not ready, using fallback query');
+        const activeProducts = await db.collection('products')
+          .where('status', '==', 'active')
+          .get();
+        
+        const expiredDocs = [];
+        activeProducts.forEach(doc => {
+          const data = doc.data();
+          const endDate = data.endDate?._seconds ? 
+            new Date(data.endDate._seconds * 1000) : 
+            new Date(data.endDate);
+          
+          if (endDate <= now) {
+            expiredDocs.push(doc);
+          }
+        });
+        
+        expiredProductsSnapshot = { 
+          empty: expiredDocs.length === 0, 
+          size: expiredDocs.length,
+          docs: expiredDocs 
+        };
+      }
 
       if (expiredProductsSnapshot.empty) {
         return;

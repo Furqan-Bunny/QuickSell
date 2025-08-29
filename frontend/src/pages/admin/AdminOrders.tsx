@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import axios from 'axios'
+import axios from '../../config/axios'
 import { useAuthStore } from '../../store/authStore'
 import {
   MagnifyingGlassIcon,

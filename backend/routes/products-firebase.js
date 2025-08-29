@@ -54,6 +54,44 @@ const uploadToStorage = async (file) => {
   });
 };
 
+// Get my products (for admin/seller)
+router.get('/my-products', authMiddleware, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+    
+    // Get all products for admin
+    let snapshot;
+    try {
+      snapshot = await db.collection('products')
+        .orderBy('createdAt', 'desc')
+        .get();
+    } catch (error) {
+      // Fallback without ordering if index is missing
+      console.log('Products orderBy failed, using fallback:', error.message);
+      snapshot = await db.collection('products').get();
+    }
+    
+    const products = [];
+    snapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    
+    res.json({
+      success: true,
+      data: products
+    });
+  } catch (error) {
+    console.error('Error fetching admin products:', error);
+    res.status(500).json({ error: 'Failed to fetch products' });
+  }
+});
+
 // Get all products
 router.get('/', async (req, res) => {
   try {

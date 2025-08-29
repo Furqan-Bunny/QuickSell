@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '../../store/authStore'
-import axios from 'axios'
+import axios from '../../config/axios'
 import {
   UsersIcon,
   MagnifyingGlassIcon,

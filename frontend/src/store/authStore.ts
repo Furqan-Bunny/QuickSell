@@ -48,6 +48,29 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   initAuth: () => {
     console.log('Initializing auth...')
+    
+    // First check localStorage for existing session
+    const savedToken = localStorage.getItem('token')
+    const savedUser = localStorage.getItem('user')
+    
+    if (savedToken && savedUser) {
+      try {
+        const user = JSON.parse(savedUser) as User
+        axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
+        console.log('Restored auth from localStorage:', user.email)
+        set({
+          user,
+          token: savedToken,
+          isAuthenticated: true,
+          isLoading: false
+        })
+      } catch (error) {
+        console.error('Error parsing saved user:', error)
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+      }
+    }
+    
     set({ isLoading: true })
     
     // Listen to Firebase auth state changes

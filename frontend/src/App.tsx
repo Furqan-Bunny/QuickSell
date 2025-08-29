@@ -1,9 +1,10 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuthStore } from './store/authStore'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
+import LoadingSpinner from './components/LoadingSpinner'
 import './config/axios' // Initialize axios configuration
 
 // Pages
@@ -37,11 +38,21 @@ import AdminNotifications from './pages/admin/AdminNotifications'
 import AdminSettings from './pages/admin/AdminSettings'
 
 function App() {
-  const { initAuth } = useAuthStore()
+  const { initAuth, isLoading } = useAuthStore()
+  const [isInitialized, setIsInitialized] = useState(false)
 
   useEffect(() => {
-    initAuth()
-  }, [initAuth])
+    const initialize = async () => {
+      await initAuth()
+      setIsInitialized(true)
+    }
+    initialize()
+  }, [])
+
+  // Show loading spinner during initial auth check
+  if (!isInitialized && isLoading) {
+    return <LoadingSpinner message="Initializing Quicksell..." />
+  }
 
   return (
     <Routes>

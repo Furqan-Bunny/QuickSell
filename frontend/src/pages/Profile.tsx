@@ -12,10 +12,13 @@ import {
   KeyIcon,
   CameraIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon
+  ExclamationTriangleIcon,
+  BanknotesIcon,
+  ArrowRightIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice } from '../utils/formatters'
 import toast from 'react-hot-toast'
+import { Link } from 'react-router-dom'
 import { 
   updateProfile, 
   uploadAvatar, 
@@ -587,6 +590,33 @@ const Profile = () => {
             <h2 className="text-xl font-semibold text-gray-900 mb-6">Billing & Payments</h2>
             
             <div className="space-y-6">
+              {/* Wallet Balance Section */}
+              <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <BanknotesIcon className="h-6 w-6" />
+                      <h3 className="text-lg font-medium">Wallet Balance</h3>
+                    </div>
+                    <p className="text-3xl font-bold">{formatPrice(user?.balance || 0)}</p>
+                    <p className="text-primary-100 text-sm mt-1">Available for bidding and purchases</p>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Link 
+                      to="/withdrawals"
+                      className="flex items-center gap-2 bg-white text-primary-600 px-4 py-2 rounded-lg font-semibold hover:bg-primary-50 transition"
+                    >
+                      <BanknotesIcon className="h-5 w-5" />
+                      Withdraw Funds
+                      <ArrowRightIcon className="h-4 w-4" />
+                    </Link>
+                    <button className="flex items-center gap-2 bg-primary-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-400 transition">
+                      Add Funds
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Methods</h3>
                 <div className="space-y-3">

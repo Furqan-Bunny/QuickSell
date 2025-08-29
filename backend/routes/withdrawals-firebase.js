@@ -115,9 +115,17 @@ router.get('/my-withdrawals', authMiddleware, async (req, res) => {
       query = query.where('status', '==', status);
     }
     
-    const snapshot = await query
-      .orderBy('requestedAt', 'desc')
-      .get();
+    let snapshot;
+    try {
+      // Try with orderBy first
+      snapshot = await query
+        .orderBy('requestedAt', 'desc')
+        .get();
+    } catch (indexError) {
+      console.log('Withdrawals orderBy failed, using fallback:', indexError.message);
+      // Fallback without ordering if index is missing
+      snapshot = await query.get();
+    }
     
     const withdrawals = snapshot.docs.map(doc => ({
       id: doc.id,
@@ -145,9 +153,17 @@ router.get('/admin/all', authMiddleware, adminMiddleware, async (req, res) => {
       query = query.where('status', '==', status);
     }
     
-    const snapshot = await query
-      .orderBy('requestedAt', 'desc')
-      .get();
+    let snapshot;
+    try {
+      // Try with orderBy first
+      snapshot = await query
+        .orderBy('requestedAt', 'desc')
+        .get();
+    } catch (indexError) {
+      console.log('Admin withdrawals orderBy failed, using fallback:', indexError.message);
+      // Fallback without ordering if index is missing
+      snapshot = await query.get();
+    }
     
     const withdrawals = [];
     for (const doc of snapshot.docs) {

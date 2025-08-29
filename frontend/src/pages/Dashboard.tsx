@@ -12,7 +12,8 @@ import {
   ChartBarIcon,
   ArrowRightIcon,
   BellIcon,
-  ExclamationCircleIcon
+  ExclamationCircleIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice, getTimeRemaining } from '../utils/formatters'
 import ProductCard from '../components/ProductCard'
@@ -112,18 +113,31 @@ const Dashboard = () => {
     >
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-6">
-        <h1 className="text-3xl font-bold text-gray-900">
-          Welcome back, {user?.firstName || 'User'}!
-        </h1>
-        <p className="text-gray-600 mt-2">
-          Here's what's happening with your auctions today
-        </p>
-        {stats.pendingOrders > 0 && (
-          <div className="mt-4 flex items-center text-orange-600">
-            <ExclamationCircleIcon className="h-5 w-5 mr-2" />
-            <span>You have {stats.pendingOrders} pending orders to complete</span>
+        <div className="flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Welcome back, {user?.firstName || 'User'}!
+            </h1>
+            <p className="text-gray-600 mt-2">
+              Here's what's happening with your auctions today
+            </p>
+            {stats.pendingOrders > 0 && (
+              <div className="mt-4 flex items-center text-orange-600">
+                <ExclamationCircleIcon className="h-5 w-5 mr-2" />
+                <span>You have {stats.pendingOrders} pending orders to complete</span>
+              </div>
+            )}
           </div>
-        )}
+          <div className="flex flex-col gap-2">
+            <Link 
+              to="/withdrawals"
+              className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-700 transition"
+            >
+              <BanknotesIcon className="h-5 w-5" />
+              Withdraw Balance
+            </Link>
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}

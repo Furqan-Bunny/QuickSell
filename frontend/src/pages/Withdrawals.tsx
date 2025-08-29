@@ -4,6 +4,7 @@ import { BanknotesIcon, ClockIcon, CheckCircleIcon, XCircleIcon } from '@heroico
 import { useAuthStore } from '../store/authStore'
 import axios from 'axios'
 import toast from 'react-hot-toast'
+import notificationService from '../services/notificationService'
 
 interface BankDetails {
   accountNumber: string
@@ -85,6 +86,10 @@ const Withdrawals = () => {
       })
 
       toast.success('Withdrawal request submitted successfully')
+      
+      // Create notification
+      notificationService.createWithdrawalNotification('requested', parseFloat(formData.amount))
+      
       setShowRequestModal(false)
       setFormData({
         amount: '',

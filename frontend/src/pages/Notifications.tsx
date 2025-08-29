@@ -17,7 +17,8 @@ import {
   CogIcon,
   EllipsisVerticalIcon,
   TruckIcon,
-  CreditCardIcon
+  CreditCardIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 import {
   BellIcon as BellIconSolid
@@ -25,25 +26,7 @@ import {
 import { formatPrice } from '../utils/formatters'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
-
-interface Notification {
-  id: string
-  type: 'bid' | 'outbid' | 'won' | 'lost' | 'price_alert' | 'system' | 'reminder' | 'welcome' | 'payment' | 'shipping'
-  title: string
-  message: string
-  timestamp: string
-  read: boolean
-  priority: 'low' | 'medium' | 'high' | 'urgent'
-  actionUrl?: string
-  actionLabel?: string
-  metadata?: {
-    productId?: string
-    productTitle?: string
-    amount?: number
-    orderId?: string
-    imageUrl?: string
-  }
-}
+import notificationService, { type Notification } from '../services/notificationService'
 
 const Notifications = () => {
   const { user } = useAuthStore()
@@ -53,12 +36,22 @@ const Notifications = () => {
   const [showMenu, setShowMenu] = useState<string | null>(null)
 
   useEffect(() => {
-    loadNotifications()
+    // Subscribe to notification changes
+    const unsubscribe = notificationService.subscribe((updatedNotifications) => {
+      setNotifications(updatedNotifications)
+    })
+
+    // Add some sample notifications if none exist
+    if (notificationService.getNotifications().length === 0) {
+      loadSampleNotifications()
+    }
+
+    return () => unsubscribe()
   }, [])
 
-  const loadNotifications = () => {
-    // Mock notifications data
-    const mockNotifications: Notification[] = [
+  const loadSampleNotifications = () => {
+    // Add sample notifications using the service
+    const sampleNotifications = [
       {
         id: 'notif-1',
         type: 'bid',
@@ -215,32 +208,30 @@ const Notifications = () => {
       }
     ]
 
-    setNotifications(mockNotifications)
+    // Add sample notifications to the service
+    sampleNotifications.forEach(notif => {
+      const { id, timestamp, read, ...notifData } = notif
+      notificationService.addNotification(notifData as any)
+    })
   }
 
   const markAsRead = (notificationId: string) => {
-    setNotifications(prev => 
-      prev.map(notif => 
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      )
-    )
+    notificationService.markAsRead(notificationId)
   }
 
   const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notif => ({ ...notif, read: true }))
-    )
+    notificationService.markAllAsRead()
     toast.success('All notifications marked as read')
   }
 
   const deleteNotification = (notificationId: string) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== notificationId))
+    notificationService.deleteNotification(notificationId)
     toast.success('Notification deleted')
   }
 
   const deleteAllRead = () => {
-    setNotifications(prev => prev.filter(notif => !notif.read))
-    toast.success('All read notifications deleted')
+    notificationService.clearReadNotifications()
+    toast.success('All read notifications cleared')
   }
 
   const getNotificationIcon = (type: string, priority: string) => {
@@ -260,6 +251,7 @@ const Notifications = () => {
       case 'payment': return <CreditCardIcon className={`${baseClasses} text-green-500`} />
       case 'welcome': return <GiftIcon className={`${baseClasses} text-pink-500`} />
       case 'system': return <InformationCircleIcon className={`${baseClasses} text-blue-500`} />
+      case 'withdrawal': return <BanknotesIcon className={`${baseClasses} text-green-500`} />
       default: return <BellIcon className={`${baseClasses} ${colorClasses}`} />
     }
   }

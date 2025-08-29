@@ -1,8 +1,9 @@
 import { Link, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 import { Menu, Transition } from '@headlessui/react'
 import { Fragment } from 'react'
+import notificationService from '../services/notificationService'
 import {
   HomeIcon,
   ShoppingBagIcon,
@@ -24,6 +25,17 @@ const Navbar = () => {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    // Subscribe to notification changes
+    const unsubscribe = notificationService.subscribe((notifications) => {
+      const count = notifications.filter(n => !n.read).length
+      setUnreadCount(count)
+    })
+
+    return () => unsubscribe()
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -86,9 +98,11 @@ const Navbar = () => {
                 </Link>
                 <Link to="/notifications" className="text-gray-700 hover:text-primary-600 transition-colors relative">
                   <BellIcon className="h-6 w-6" />
-                  <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
-                    3
-                  </span>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
 
                 {/* User Menu */}

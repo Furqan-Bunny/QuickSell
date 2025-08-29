@@ -40,38 +40,47 @@ interface AuthState {
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://quicksell-1-4020.onrender.com/api'
 
+// Initialize auth state from localStorage immediately
+const getInitialAuthState = () => {
+  const savedToken = localStorage.getItem('token')
+  const savedUser = localStorage.getItem('user')
+  
+  if (savedToken && savedUser) {
+    try {
+      const user = JSON.parse(savedUser) as User
+      axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
+      return {
+        user,
+        token: savedToken,
+        isAuthenticated: true,
+        isLoading: false
+      }
+    } catch (error) {
+      console.error('Error parsing saved user:', error)
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    }
+  }
+  
+  return {
+    user: null,
+    token: null,
+    isAuthenticated: false,
+    isLoading: false
+  }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  token: null,
-  isLoading: false,
-  isAuthenticated: false,
+  ...getInitialAuthState(),
 
   initAuth: () => {
-    console.log('Initializing auth...')
+    console.log('Initializing Firebase auth listener...')
     
-    // First check localStorage for existing session
-    const savedToken = localStorage.getItem('token')
-    const savedUser = localStorage.getItem('user')
-    
-    if (savedToken && savedUser) {
-      try {
-        const user = JSON.parse(savedUser) as User
-        axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
-        console.log('Restored auth from localStorage:', user.email)
-        set({
-          user,
-          token: savedToken,
-          isAuthenticated: true,
-          isLoading: false
-        })
-      } catch (error) {
-        console.error('Error parsing saved user:', error)
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-      }
+    // Don't set loading if we already have auth from localStorage
+    const currentState = useAuthStore.getState()
+    if (!currentState.isAuthenticated) {
+      set({ isLoading: true })
     }
-    
-    set({ isLoading: true })
     
     // Listen to Firebase auth state changes
     firebaseAuth.onAuthStateChanged(async (firebaseUser) => {

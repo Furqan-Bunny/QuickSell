@@ -3,10 +3,11 @@ import { useAuthStore } from '../store/authStore'
 import LoadingSpinner from './LoadingSpinner'
 
 const ProtectedRoute = () => {
-  const { isAuthenticated, isLoading } = useAuthStore()
+  const { isAuthenticated, isLoading, token } = useAuthStore()
 
-  // Show loading spinner while checking auth
-  if (isLoading) {
+  // Only show loading if we're actually loading and don't have a token
+  // This prevents unnecessary loading states when auth is already in localStorage
+  if (isLoading && !token) {
     return <LoadingSpinner message="Checking authentication..." />
   }
 

@@ -15,7 +15,8 @@ import {
   BellIcon,
   ShieldCheckIcon,
   Bars3Icon,
-  XMarkIcon
+  XMarkIcon,
+  BanknotesIcon
 } from '@heroicons/react/24/outline'
 
 const AdminLayout = () => {
@@ -64,6 +65,12 @@ const AdminLayout = () => {
       name: 'Payments',
       icon: CurrencyDollarIcon,
       description: 'Payment Management'
+    },
+    {
+      path: '/admin/withdrawals',
+      name: 'Withdrawals',
+      icon: BanknotesIcon,
+      description: 'Withdrawal Requests'
     },
     {
       path: '/admin/notifications',

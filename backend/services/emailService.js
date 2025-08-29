@@ -303,6 +303,221 @@ class EmailService {
     return `${hours} hours`;
   }
 
+  // Send withdrawal request confirmation
+  async sendWithdrawalRequest(user, withdrawal) {
+    try {
+      const mailOptions = {
+        from: `${this.senderName} <${this.senderEmail}>`,
+        to: user.email,
+        subject: 'Withdrawal Request Submitted',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">Withdrawal Request Received</h1>
+            </div>
+            <div style="padding: 30px; background: #f7f7f7;">
+              <h2>Hi ${user.firstName}!</h2>
+              <p>Your withdrawal request has been submitted successfully and is pending admin approval.</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <h3>Withdrawal Details:</h3>
+                <p><strong>Amount:</strong> R${withdrawal.amount}</p>
+                <p><strong>Bank:</strong> ${withdrawal.bankDetails.bankName}</p>
+                <p><strong>Account:</strong> ***${withdrawal.bankDetails.accountNumber.slice(-4)}</p>
+                <p><strong>Status:</strong> Pending Approval</p>
+              </div>
+              
+              <p style="color: #666;">You will receive an email notification once your withdrawal is processed.</p>
+              <p style="color: #666;">Processing typically takes 1-2 business days.</p>
+            </div>
+          </div>
+        `
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      await this.logEmailSent('withdrawal_request', user.email, user.uid);
+    } catch (error) {
+      console.error('Error sending withdrawal request email:', error);
+      throw error;
+    }
+  }
+
+  // Send withdrawal approved notification
+  async sendWithdrawalApproved(user, withdrawal, transactionReference) {
+    try {
+      const mailOptions = {
+        from: `${this.senderName} <${this.senderEmail}>`,
+        to: user.email,
+        subject: 'Withdrawal Approved - Funds Transferred',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #4CAF50; padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">✅ Withdrawal Approved!</h1>
+            </div>
+            <div style="padding: 30px; background: #f7f7f7;">
+              <h2>Hi ${user.firstName}!</h2>
+              <p>Great news! Your withdrawal request has been approved and processed.</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <h3>Transaction Details:</h3>
+                <p><strong>Amount:</strong> R${withdrawal.amount}</p>
+                <p><strong>Bank:</strong> ${withdrawal.bankDetails.bankName}</p>
+                <p><strong>Account:</strong> ***${withdrawal.bankDetails.accountNumber.slice(-4)}</p>
+                ${transactionReference ? `<p><strong>Reference:</strong> ${transactionReference}</p>` : ''}
+                <p><strong>Status:</strong> ✅ Completed</p>
+              </div>
+              
+              <p style="color: #666;">The funds should reflect in your account within 1-2 business days.</p>
+              <p style="color: #666;">If you have any questions, please contact support.</p>
+            </div>
+          </div>
+        `
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      await this.logEmailSent('withdrawal_approved', user.email, user.uid);
+    } catch (error) {
+      console.error('Error sending withdrawal approval email:', error);
+      throw error;
+    }
+  }
+
+  // Send withdrawal rejected notification
+  async sendWithdrawalRejected(user, withdrawal, reason) {
+    try {
+      const mailOptions = {
+        from: `${this.senderName} <${this.senderEmail}>`,
+        to: user.email,
+        subject: 'Withdrawal Request Update',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #f44336; padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">Withdrawal Request Update</h1>
+            </div>
+            <div style="padding: 30px; background: #f7f7f7;">
+              <h2>Hi ${user.firstName},</h2>
+              <p>Your withdrawal request could not be processed at this time.</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <h3>Request Details:</h3>
+                <p><strong>Amount:</strong> R${withdrawal.amount}</p>
+                <p><strong>Reason:</strong> ${reason}</p>
+              </div>
+              
+              <p>The amount has been refunded to your Quicksell balance.</p>
+              <p>You may submit a new withdrawal request at any time.</p>
+              
+              <p style="color: #666;">If you have questions about this decision, please contact support.</p>
+            </div>
+          </div>
+        `
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      await this.logEmailSent('withdrawal_rejected', user.email, user.uid);
+    } catch (error) {
+      console.error('Error sending withdrawal rejection email:', error);
+      throw error;
+    }
+  }
+
+  // Send payment confirmation
+  async sendPaymentConfirmation(user, order) {
+    try {
+      const mailOptions = {
+        from: `${this.senderName} <${this.senderEmail}>`,
+        to: user.email,
+        subject: `Payment Confirmed - ${order.productTitle}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #4CAF50; padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">Payment Successful!</h1>
+            </div>
+            <div style="padding: 30px; background: #f7f7f7;">
+              <h2>Hi ${user.firstName}!</h2>
+              <p>Your payment has been processed successfully.</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <h3>Order Details:</h3>
+                <p><strong>Item:</strong> ${order.productTitle}</p>
+                <p><strong>Amount:</strong> R${order.amount}</p>
+                <p><strong>Order ID:</strong> ${order.id || 'N/A'}</p>
+                <p><strong>Payment Method:</strong> ${order.paymentMethod}</p>
+              </div>
+              
+              <p>The seller has been notified and will arrange shipping soon.</p>
+              
+              <a href="${process.env.FRONTEND_URL || 'https://quicksell-80aad.web.app'}/orders/${order.id}" 
+                 style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                View Order
+              </a>
+            </div>
+          </div>
+        `
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      await this.logEmailSent('payment_confirmation', user.email, user.uid);
+    } catch (error) {
+      console.error('Error sending payment confirmation:', error);
+      throw error;
+    }
+  }
+
+  // Send sale notification to seller
+  async sendSaleNotification(seller, order) {
+    try {
+      const platformFee = order.amount * 0.1;
+      const sellerAmount = order.amount - platformFee;
+      
+      const mailOptions = {
+        from: `${this.senderName} <${this.senderEmail}>`,
+        to: seller.email,
+        subject: `Item Sold - ${order.productTitle}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background: #4CAF50; padding: 30px; text-align: center;">
+              <h1 style="color: white; margin: 0;">🎉 Congratulations! Item Sold</h1>
+            </div>
+            <div style="padding: 30px; background: #f7f7f7;">
+              <h2>Hi ${seller.firstName}!</h2>
+              <p>Great news! Your item has been sold.</p>
+              
+              <div style="background: white; padding: 20px; border-radius: 10px; margin: 20px 0;">
+                <h3>Sale Details:</h3>
+                <p><strong>Item:</strong> ${order.productTitle}</p>
+                <p><strong>Sale Price:</strong> R${order.amount}</p>
+                <p><strong>Platform Fee (10%):</strong> R${platformFee.toFixed(2)}</p>
+                <p><strong>Your Earnings:</strong> R${sellerAmount.toFixed(2)}</p>
+                <p><strong>Buyer:</strong> ${order.buyerName}</p>
+              </div>
+              
+              <p><strong>Next Steps:</strong></p>
+              <ol>
+                <li>Package the item securely</li>
+                <li>Ship to the buyer within 2 business days</li>
+                <li>Update the order with tracking information</li>
+              </ol>
+              
+              <a href="${process.env.FRONTEND_URL || 'https://quicksell-80aad.web.app'}/orders/${order.id}" 
+                 style="display: inline-block; background: #667eea; color: white; padding: 15px 30px; 
+                        text-decoration: none; border-radius: 5px; margin: 20px 0;">
+                View Order Details
+              </a>
+            </div>
+          </div>
+        `
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      await this.logEmailSent('sale_notification', seller.email, seller.uid);
+    } catch (error) {
+      console.error('Error sending sale notification:', error);
+      throw error;
+    }
+  }
+
   // Log email sent to database
   async logEmailSent(type, recipient, userId) {
     try {

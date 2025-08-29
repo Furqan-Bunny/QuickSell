@@ -109,6 +109,8 @@ const walletRoutes = require('./routes/payments-wallet');
 const flutterwaveRoutes = require('./routes/payments-flutterwave');
 const paymentVerificationRoutes = require('./routes/payments-verification');
 const adminRoutes = require('./routes/admin-firebase');
+const withdrawalRoutes = require('./routes/withdrawals-firebase');
+const paymentsFirebaseRoutes = require('./routes/payments-firebase');
 // const notificationRoutes = require('./routes/notifications'); // Need to convert to Firebase
 
 // Routes
@@ -119,11 +121,12 @@ app.use('/api/affiliate', affiliateRoutes);
 app.use('/api/bids', bidRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/categories', categoryRoutes);
-app.use('/api/payments', paymentRoutes);
+app.use('/api/payments', paymentsFirebaseRoutes); // Use new Firebase payments
 app.use('/api/payments/payfast', payfastRoutes);
 app.use('/api/payments/wallet', walletRoutes);
 app.use('/api/payments/flutterwave', flutterwaveRoutes);
 app.use('/api/payments/verification', paymentVerificationRoutes);
+app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
 // app.use('/api/notifications', notificationRoutes);
 

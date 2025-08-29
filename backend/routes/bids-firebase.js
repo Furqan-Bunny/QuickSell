@@ -67,12 +67,8 @@ router.post('/', authMiddleware, async (req, res) => {
     const userDoc = await db.collection('users').doc(userId).get();
     const userData = userDoc.data();
     
-    // Check user balance
-    if (userData.balance < amount) {
-      return res.status(400).json({ 
-        error: 'Insufficient balance. Please add funds to your account.' 
-      });
-    }
+    // Note: Balance check removed - users can bid without balance
+    // Payment will be required only when they win the auction
     
     // Use transaction to ensure consistency
     const result = await db.runTransaction(async (transaction) => {

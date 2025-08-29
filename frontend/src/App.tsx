@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuthStore } from './store/authStore'
+import { useAuthPersistence } from './hooks/useAuthPersistence'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
@@ -25,6 +26,7 @@ import Wishlist from './pages/Wishlist'
 import Notifications from './pages/Notifications'
 import Affiliate from './pages/Affiliate'
 import Checkout from './pages/Checkout'
+import Withdrawals from './pages/Withdrawals'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentCancel from './pages/PaymentCancel'
 import AdminDashboard from './pages/admin/AdminDashboard'
@@ -36,21 +38,25 @@ import AdminReports from './pages/admin/AdminReports'
 import AdminPayments from './pages/admin/AdminPayments'
 import AdminNotifications from './pages/admin/AdminNotifications'
 import AdminSettings from './pages/admin/AdminSettings'
+import AdminWithdrawals from './pages/admin/AdminWithdrawals'
 
 function App() {
-  const { initAuth, isLoading } = useAuthStore()
-  const [isInitialized, setIsInitialized] = useState(false)
+  const { initAuth, isLoading, isAuthenticated } = useAuthStore()
+  const [isFirebaseInitialized, setIsFirebaseInitialized] = useState(false)
+  
+  // Use auth persistence hook
+  useAuthPersistence()
 
   useEffect(() => {
-    const initialize = async () => {
-      await initAuth()
-      setIsInitialized(true)
-    }
-    initialize()
+    // Initialize Firebase auth listener
+    initAuth()
+    // Mark as initialized after a short delay to ensure Firebase is ready
+    setTimeout(() => setIsFirebaseInitialized(true), 100)
   }, [])
 
-  // Show loading spinner during initial auth check
-  if (!isInitialized && isLoading) {
+  // Only show loading spinner if we don't have auth from localStorage
+  // and Firebase hasn't initialized yet
+  if (!isFirebaseInitialized && isLoading && !isAuthenticated) {
     return <LoadingSpinner message="Initializing Quicksell..." />
   }
 
@@ -68,6 +74,7 @@ function App() {
         <Route path="categories" element={<AdminCategories />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="payments" element={<AdminPayments />} />
+        <Route path="withdrawals" element={<AdminWithdrawals />} />
         <Route path="notifications" element={<AdminNotifications />} />
         <Route path="settings" element={<AdminSettings />} />
       </Route>
@@ -96,6 +103,7 @@ function App() {
           <Route path="wishlist" element={<Wishlist />} />
           <Route path="notifications" element={<Notifications />} />
           <Route path="affiliate" element={<Affiliate />} />
+          <Route path="withdrawals" element={<Withdrawals />} />
         </Route>
       </Route>
     </Routes>

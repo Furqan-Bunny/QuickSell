@@ -104,12 +104,13 @@ const EditProduct = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/products/categories/all')
+      const response = await axios.get('/api/categories')
       if (response.data.success) {
         setCategories(response.data.data)
       }
     } catch (error) {
       console.error('Error fetching categories:', error)
+      toast.error('Failed to load categories')
     }
   }
 

@@ -17,16 +17,12 @@ import {
 } from '@heroicons/react/24/outline'
 import { useAuthStore } from '../store/authStore'
 import toast from 'react-hot-toast'
+import axios from 'axios'
 
-// Temporary hardcoded categories - TODO: Load from API
-const categories = [
-  { id: '1', name: 'Electronics' },
-  { id: '2', name: 'Fashion' },
-  { id: '3', name: 'Home & Garden' },
-  { id: '4', name: 'Sports' },
-  { id: '5', name: 'Collectibles' },
-  { id: '6', name: 'Other' }
-]
+interface Category {
+  id: string
+  name: string
+}
 
 interface AuctionFormData {
   title: string
@@ -48,6 +44,7 @@ interface AuctionFormData {
 const CreateAuction = () => {
   const { user } = useAuthStore()
   const navigate = useNavigate()
+  const [categories, setCategories] = useState<Category[]>([])
   const [formData, setFormData] = useState<AuctionFormData>({
     title: '',
     description: '',
@@ -69,13 +66,26 @@ const CreateAuction = () => {
   const [currentStep, setCurrentStep] = useState(1)
   const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
-  // Check if user is admin
+  // Check if user is admin and fetch categories
   useEffect(() => {
     if (user?.role !== 'admin') {
       toast.error('Access denied. Admin privileges required.')
       navigate('/dashboard')
     }
+    fetchCategories()
   }, [user, navigate])
+
+  const fetchCategories = async () => {
+    try {
+      const response = await axios.get('/api/categories')
+      if (response.data.success) {
+        setCategories(response.data.data)
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error)
+      toast.error('Failed to load categories')
+    }
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target

@@ -185,6 +185,7 @@ const startServer = () => {
     console.log(`Server running on http://${HOST}:${PORT}`);
     console.log(`Environment: ${process.env.NODE_ENV}`);
     console.log('Server is ready to accept connections');
+  console.log('Railway deployment active');
   });
 };
 

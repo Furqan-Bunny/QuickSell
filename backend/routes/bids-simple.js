@@ -5,27 +5,55 @@ const { authMiddleware } = require('../middleware/auth');
 
 // Helper function to convert Firebase timestamps to ISO strings
 const convertTimestamp = (timestamp) => {
-  if (!timestamp) return null;
-  
-  // If it's already a string, return it
-  if (typeof timestamp === 'string') return timestamp;
-  
-  // If it's a Firebase Timestamp object
-  if (timestamp._seconds) {
-    return new Date(timestamp._seconds * 1000).toISOString();
+  try {
+    if (!timestamp) return new Date().toISOString(); // Return current date if null
+    
+    // If it's already a valid ISO string, return it
+    if (typeof timestamp === 'string') {
+      // Check if it's a valid date string
+      const date = new Date(timestamp);
+      if (!isNaN(date.getTime())) {
+        return timestamp;
+      }
+      return new Date().toISOString(); // Invalid string, return current date
+    }
+    
+    // If it's a Firebase Timestamp object
+    if (timestamp && typeof timestamp === 'object' && timestamp._seconds !== undefined) {
+      const seconds = parseInt(timestamp._seconds) || 0;
+      const nanoseconds = parseInt(timestamp._nanoseconds) || 0;
+      return new Date(seconds * 1000 + nanoseconds / 1000000).toISOString();
+    }
+    
+    // If it's a Date object
+    if (timestamp instanceof Date) {
+      if (!isNaN(timestamp.getTime())) {
+        return timestamp.toISOString();
+      }
+      return new Date().toISOString(); // Invalid date, return current date
+    }
+    
+    // If it's a number (milliseconds or seconds)
+    if (typeof timestamp === 'number') {
+      // If it's likely seconds (smaller number)
+      if (timestamp < 10000000000) {
+        return new Date(timestamp * 1000).toISOString();
+      }
+      // Otherwise treat as milliseconds
+      return new Date(timestamp).toISOString();
+    }
+    
+    // If it's an object with toDate method (Firestore Timestamp)
+    if (timestamp && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate().toISOString();
+    }
+    
+    // Default to current date for any other case
+    return new Date().toISOString();
+  } catch (error) {
+    console.error('Error converting timestamp:', error, timestamp);
+    return new Date().toISOString(); // Return current date on any error
   }
-  
-  // If it's a Date object
-  if (timestamp instanceof Date) {
-    return timestamp.toISOString();
-  }
-  
-  // If it's a number (milliseconds)
-  if (typeof timestamp === 'number') {
-    return new Date(timestamp).toISOString();
-  }
-  
-  return null;
 };
 
 // Simple bid placement without complex transactions
@@ -153,6 +181,7 @@ router.post('/', authMiddleware, async (req, res) => {
 router.get('/product/:productId', async (req, res) => {
   try {
     const { productId } = req.params;
+    console.log('Fetching bids for product:', productId);
     
     let bids = [];
     try {
@@ -160,19 +189,31 @@ router.get('/product/:productId', async (req, res) => {
         .where('productId', '==', productId)
         .get();
       
-      bids = bidsSnapshot.docs.map(doc => {
+      console.log(`Found ${bidsSnapshot.size} bids for product ${productId}`);
+      
+      bids = bidsSnapshot.docs.map((doc, index) => {
         const data = doc.data();
+        console.log(`Processing bid ${index + 1}:`, { 
+          id: doc.id, 
+          createdAt: data.createdAt,
+          userName: data.userName,
+          amount: data.amount 
+        });
+        
         const createdAt = convertTimestamp(data.createdAt);
-        return {
+        const processedBid = {
           id: doc.id,
           ...data,
           createdAt: createdAt,
           updatedAt: convertTimestamp(data.updatedAt),
-          timestamp: createdAt || new Date().toISOString(), // Frontend expects timestamp field
+          timestamp: createdAt, // Frontend expects timestamp field
           bidder: {
-            username: data.userName || 'Unknown User'
+            username: data.userName || data.userId || 'Unknown User'
           }
         };
+        
+        console.log(`Processed bid ${index + 1} timestamp:`, processedBid.timestamp);
+        return processedBid;
       });
       
       // Sort by amount in memory

@@ -83,18 +83,21 @@ router.post('/', authMiddleware, async (req, res) => {
       });
       
       // Mark previous bids as outbid (simple approach, no transaction)
+      // Note: Firebase doesn't support != in compound queries, so we get all active bids
       const previousBids = await db.collection('bids')
         .where('productId', '==', productId)
         .where('status', '==', 'active')
-        .where('userId', '!=', userId)
         .get();
       
-      const updatePromises = previousBids.docs.map(doc => 
-        doc.ref.update({ 
-          status: 'outbid', 
-          updatedAt: new Date() 
-        })
-      );
+      // Filter out the current user's bid and update others
+      const updatePromises = previousBids.docs
+        .filter(doc => doc.data().userId !== userId)
+        .map(doc => 
+          doc.ref.update({ 
+            status: 'outbid', 
+            updatedAt: new Date() 
+          })
+        );
       
       await Promise.all(updatePromises);
       

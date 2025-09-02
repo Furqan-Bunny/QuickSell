@@ -7,10 +7,18 @@ dotenv.config();
 const initializeFirebase = () => {
   try {
     // Parse the service account JSON from environment variable
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+    const serviceAccountString = process.env.FIREBASE_SERVICE_ACCOUNT;
+    
+    if (!serviceAccountString) {
+      console.error('FIREBASE_SERVICE_ACCOUNT environment variable is not set');
+      console.error('Please add your Firebase service account JSON to Railway environment variables');
+      return null;
+    }
+    
+    const serviceAccount = JSON.parse(serviceAccountString);
     
     if (!serviceAccount.project_id) {
-      console.error('Firebase service account not configured properly');
+      console.error('Firebase service account JSON is invalid - missing project_id');
       return null;
     }
 
@@ -20,9 +28,13 @@ const initializeFirebase = () => {
     });
 
     console.log('Firebase Admin SDK initialized successfully');
+    console.log('Project ID:', serviceAccount.project_id);
     return admin;
   } catch (error) {
-    console.error('Error initializing Firebase:', error);
+    console.error('Error initializing Firebase:', error.message);
+    if (error.message.includes('JSON')) {
+      console.error('Make sure FIREBASE_SERVICE_ACCOUNT is valid JSON and on a single line');
+    }
     return null;
   }
 };

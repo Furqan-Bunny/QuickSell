@@ -5,10 +5,15 @@
   "scripts": {
     "start": "cd backend && npm start",
     "dev": "cd frontend && npm run dev",
-    "build": "echo 'No build needed for backend'",
+    "build": "cd backend && npm install",
     "install": "cd backend && npm install",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../api && npm install",
-    "vercel-build": "cd frontend && npm install && npm run build"
+    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
+    "vercel-build": "cd frontend && npm install && npm run build",
+    "railway-build": "cd backend && npm install",
+    "railway-start": "cd backend && npm start"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "dependencies": {}
 }

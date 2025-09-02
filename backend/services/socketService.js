@@ -10,12 +10,21 @@ class SocketService {
   }
 
   initialize(server) {
+    // Check if Socket.io is already initialized
+    if (this.io) {
+      console.log('Socket.io already initialized');
+      return;
+    }
+    
     this.io = socketIO(server, {
       cors: {
         origin: [
-          "http://localhost:5173",
           "http://localhost:3000",
+          "http://localhost:3001", 
+          "http://localhost:3002",
+          "http://localhost:5173",
           "https://quicksell-80aad.web.app",
+          "https://quicksell-80aad--quicksell-5ar9e0y8.web.app",
           "https://quicksell-80aad.firebaseapp.com"
         ],
         methods: ["GET", "POST"],

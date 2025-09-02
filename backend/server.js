@@ -2,7 +2,6 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const http = require('http');
-const socketIO = require('socket.io');
 const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
@@ -13,12 +12,6 @@ dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server, {
-  cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
-    methods: ['GET', 'POST', 'PUT', 'DELETE']
-  }
-});
 
 // Trust proxy - required for Render and other cloud services
 // Set to the number of proxies between the server and the client
@@ -55,6 +48,8 @@ app.use(compression());
 // Configure CORS for multiple origins
 const allowedOrigins = [
   'http://localhost:3000',
+  'http://localhost:3001',
+  'http://localhost:3002',
   'http://localhost:5173',
   'https://quicksell-80aad.web.app',
   'https://quicksell-80aad--quicksell-5ar9e0y8.web.app',
@@ -137,13 +132,29 @@ socketService.initialize(server);
 // Make socket service accessible to routes
 app.set('socketService', socketService);
 
-// Initialize Auction Scheduler
-const auctionScheduler = require('./services/auctionScheduler');
-auctionScheduler.start();
+// Initialize Auction Scheduler only if Firebase is available
+if (db) {
+  const auctionScheduler = require('./services/auctionScheduler');
+  auctionScheduler.start();
+} else {
+  console.warn('Auction scheduler not started - Firebase not available');
+}
 
-// Health check endpoint
+// Health check endpoint - MUST be before error handlers
+app.get('/', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    message: 'Quicksell API Server',
+    timestamp: new Date().toISOString() 
+  });
+});
+
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 // Error handling middleware - ensure CORS headers are set
@@ -165,6 +176,48 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const HOST = '0.0.0.0'; // Important for Railway
+
+// Start server with better error handling
+const startServer = () => {
+  server.listen(PORT, HOST, () => {
+    console.log(`Server running on http://${HOST}:${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV}`);
+    console.log('Server is ready to accept connections');
+  });
+};
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error('Server error:', error);
+  if (error.code === 'EADDRINUSE') {
+    console.error(`Port ${PORT} is already in use`);
+    process.exit(1);
+  }
 });
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+  
+  // Force shutdown after 10 seconds
+  setTimeout(() => {
+    console.error('Forced shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully...');
+  server.close(() => {
+    console.log('Server closed');
+    process.exit(0);
+  });
+});
+
+// Start the server
+startServer();

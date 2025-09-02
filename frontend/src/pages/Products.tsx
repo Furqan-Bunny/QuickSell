@@ -71,6 +71,15 @@ const Products = () => {
       loadProducts()
       loadCategories()
     }
+    
+    // Keep backend alive with periodic pings (every 10 minutes)
+    const keepAlive = setInterval(() => {
+      axios.get('/api/health').catch(() => {
+        // Ignore errors, this is just to keep the backend warm
+      })
+    }, 10 * 60 * 1000) // 10 minutes
+    
+    return () => clearInterval(keepAlive)
   }, [])
 
   const refreshProducts = () => {
@@ -85,7 +94,23 @@ const Products = () => {
 
   const loadProducts = async () => {
     try {
-      const response = await axios.get('/api/products')
+      // Add timeout and show message for cold start
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => {
+        toast.loading('Backend is waking up... This may take a moment on first load.', {
+          id: 'cold-start',
+          duration: 10000
+        })
+      }, 3000) // Show message after 3 seconds
+      
+      const response = await axios.get('/api/products', {
+        signal: controller.signal,
+        timeout: 60000 // 60 second timeout for cold starts
+      })
+      
+      clearTimeout(timeoutId)
+      toast.dismiss('cold-start')
+      
       const rawProducts = response.data.data || []
       
       // Process Firebase timestamp format and validate each product
@@ -416,7 +441,18 @@ const Products = () => {
           </div>
 
           {/* Products */}
-          {currentProducts.length > 0 ? (
+          {loading ? (
+            // Loading skeleton
+            <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+              {[...Array(8)].map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="bg-gray-200 rounded-lg aspect-square mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                </div>
+              ))}
+            </div>
+          ) : currentProducts.length > 0 ? (
             <>
               <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                 {currentProducts.map((product, index) => (

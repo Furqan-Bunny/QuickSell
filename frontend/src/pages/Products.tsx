@@ -10,16 +10,23 @@ import {
   ArrowDownIcon,
   XMarkIcon,
   ChevronLeftIcon,
-  ChevronRightIcon
+  ChevronRightIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import ProductCard from '../components/ProductCard'
 import { formatPrice } from '../utils/formatters'
 
+// Cache for products to avoid reloading
+let productsCache: any[] | null = null
+let categoriesCache: any[] | null = null
+let cacheTimestamp: number | null = null
+const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes cache
+
 const Products = () => {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [products, setProducts] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>(productsCache || [])
   const [filteredProducts, setFilteredProducts] = useState<any[]>([])
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<any[]>(categoriesCache || [])
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '')
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get('category') || '')
   const [sortBy, setSortBy] = useState('newest')
@@ -27,7 +34,7 @@ const Products = () => {
   const [selectedCondition, setSelectedCondition] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!productsCache || productsCache.length === 0)
   const productsPerPage = 12
 
   const conditions = [
@@ -48,10 +55,33 @@ const Products = () => {
   ]
 
   useEffect(() => {
-    // Load products and categories from Firebase API
+    // Check if cache is valid
+    const now = Date.now()
+    const cacheIsValid = cacheTimestamp && (now - cacheTimestamp < CACHE_DURATION)
+    
+    if (cacheIsValid && productsCache && productsCache.length > 0) {
+      // Use cached data
+      console.log('Using cached products:', productsCache.length)
+      setProducts(productsCache)
+      setCategories(categoriesCache || [])
+      setLoading(false)
+    } else {
+      // Load fresh data
+      console.log('Loading fresh products...')
+      loadProducts()
+      loadCategories()
+    }
+  }, [])
+
+  const refreshProducts = () => {
+    // Clear cache and reload
+    productsCache = null
+    categoriesCache = null
+    cacheTimestamp = null
+    setLoading(true)
     loadProducts()
     loadCategories()
-  }, [])
+  }
 
   const loadProducts = async () => {
     try {
@@ -88,7 +118,11 @@ const Products = () => {
         })
         .filter(Boolean) // Remove any null products from processing errors
       
+      // Update state and cache
       setProducts(processedProducts)
+      productsCache = processedProducts
+      cacheTimestamp = Date.now()
+      console.log('Cached', processedProducts.length, 'products')
       setLoading(false)
     } catch (error: any) {
       console.error('Error loading products:', error)
@@ -105,7 +139,9 @@ const Products = () => {
     try {
       const response = await axios.get('/api/categories')
       if (response.data.success) {
-        setCategories(response.data.data || [])
+        const cats = response.data.data || []
+        setCategories(cats)
+        categoriesCache = cats
       }
     } catch (error) {
       console.error('Error loading categories:', error)

@@ -724,7 +724,7 @@ const Profile = () => {
                       <ArrowRightIcon className="h-4 w-4" />
                     </Link>
                     <Link 
-                      to="/affiliates" 
+                      to="/affiliate" 
                       className="flex items-center justify-center gap-2 bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-green-400 transition text-sm sm:text-base"
                     >
                       <UserPlusIcon className="h-5 w-5" />

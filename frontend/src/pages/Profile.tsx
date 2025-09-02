@@ -93,12 +93,25 @@ const Profile = () => {
           const userData = response.data
           // Update the auth store with fresh data
           if (user) {
-            updateUser({
+            const updatedUser = {
               ...user,
               ...userData,
               id: userData.id || userData.uid || user.id,
               uid: userData.uid || user.uid
-            })
+            }
+            updateUser(updatedUser)
+            
+            // Also update notification preferences if they exist
+            if (userData.preferences?.notifications) {
+              setNotifications({
+                emailBids: userData.preferences.notifications.emailBids ?? true,
+                emailWins: userData.preferences.notifications.emailWins ?? true,
+                emailOutbid: userData.preferences.notifications.emailOutbid ?? true,
+                pushBids: userData.preferences.notifications.pushBids ?? false,
+                pushWins: userData.preferences.notifications.pushWins ?? true,
+                pushOutbid: userData.preferences.notifications.pushOutbid ?? true
+              })
+            }
           }
         }
       } catch (error) {

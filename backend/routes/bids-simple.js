@@ -3,6 +3,31 @@ const router = express.Router();
 const { admin, db } = require('../config/firebase');
 const { authMiddleware } = require('../middleware/auth');
 
+// Helper function to convert Firebase timestamps to ISO strings
+const convertTimestamp = (timestamp) => {
+  if (!timestamp) return null;
+  
+  // If it's already a string, return it
+  if (typeof timestamp === 'string') return timestamp;
+  
+  // If it's a Firebase Timestamp object
+  if (timestamp._seconds) {
+    return new Date(timestamp._seconds * 1000).toISOString();
+  }
+  
+  // If it's a Date object
+  if (timestamp instanceof Date) {
+    return timestamp.toISOString();
+  }
+  
+  // If it's a number (milliseconds)
+  if (typeof timestamp === 'number') {
+    return new Date(timestamp).toISOString();
+  }
+  
+  return null;
+};
+
 // Simple bid placement without complex transactions
 router.post('/', authMiddleware, async (req, res) => {
   try {
@@ -135,10 +160,15 @@ router.get('/product/:productId', async (req, res) => {
         .where('productId', '==', productId)
         .get();
       
-      bids = bidsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      bids = bidsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: convertTimestamp(data.createdAt),
+          updatedAt: convertTimestamp(data.updatedAt)
+        };
+      });
       
       // Sort by amount in memory
       bids.sort((a, b) => (b.amount || 0) - (a.amount || 0));
@@ -175,15 +205,26 @@ router.get('/my-bids', authMiddleware, async (req, res) => {
     
     const bids = [];
     for (const doc of bidsSnapshot.docs) {
-      const bid = { id: doc.id, ...doc.data() };
+      const bidData = doc.data();
+      const bid = { 
+        id: doc.id, 
+        ...bidData,
+        createdAt: convertTimestamp(bidData.createdAt),
+        updatedAt: convertTimestamp(bidData.updatedAt)
+      };
       
       // Get product details
       try {
         const productDoc = await db.collection('products').doc(bid.productId).get();
         if (productDoc.exists) {
+          const productData = productDoc.data();
           bid.product = {
             id: productDoc.id,
-            ...productDoc.data()
+            ...productData,
+            endDate: convertTimestamp(productData.endDate),
+            createdAt: convertTimestamp(productData.createdAt),
+            updatedAt: convertTimestamp(productData.updatedAt),
+            lastBidAt: convertTimestamp(productData.lastBidAt)
           };
         }
       } catch (err) {
@@ -193,10 +234,10 @@ router.get('/my-bids', authMiddleware, async (req, res) => {
       bids.push(bid);
     }
     
-    // Sort by date in memory
+    // Sort by date in memory (now using ISO strings)
     bids.sort((a, b) => {
-      const dateA = a.createdAt?._seconds ? a.createdAt._seconds : 0;
-      const dateB = b.createdAt?._seconds ? b.createdAt._seconds : 0;
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return dateB - dateA;
     });
     

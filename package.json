@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "start": "cd backend && npm start",
     "dev": "cd frontend && npm run dev",
-    "build": "cd frontend && npm install && npm run build",
+    "build": "echo 'No build needed for backend'",
+    "install": "cd backend && npm install",
     "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../api && npm install",
     "vercel-build": "cd frontend && npm install && npm run build"
   },

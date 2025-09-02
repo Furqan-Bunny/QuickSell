@@ -28,6 +28,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Vercel
+.vercel
 lerna-debug.log*
 
 # Editor directories and files

@@ -4,7 +4,7 @@ import axios from 'axios'
 // This avoids double /api issues
 
 // Determine the API URL based on environment
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://quicksell-1-4020.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Request interceptor to add auth token
 axios.interceptors.request.use(

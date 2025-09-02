@@ -15,8 +15,6 @@ import {
 } from '@heroicons/react/24/outline'
 import ProductCard from '../components/ProductCard'
 import { formatPrice } from '../utils/formatters'
-import { db } from '../config/firebase'
-import { collection, getDocs, query, where } from 'firebase/firestore'
 
 // Cache for products to avoid reloading
 let productsCache: any[] | null = null
@@ -87,20 +85,8 @@ const Products = () => {
 
   const loadProducts = async () => {
     try {
-      // Fetch directly from Firebase
-      const productsCollection = collection(db, 'products')
-      const q = query(productsCollection, where('status', '==', 'active'))
-      const querySnapshot = await getDocs(q)
-      
-      const rawProducts: any[] = []
-      querySnapshot.forEach((doc) => {
-        rawProducts.push({
-          id: doc.id,
-          ...doc.data()
-        })
-      })
-      
-      console.log('Fetched', rawProducts.length, 'products from Firebase')
+      const response = await axios.get('/api/products')
+      const rawProducts = response.data.data || []
       
       // Process Firebase timestamp format and validate each product
       const processedProducts = rawProducts
@@ -109,17 +95,15 @@ const Products = () => {
           try {
             return {
               ...p,
-              id: p.id,
-              endDate: p.endDate?.toDate ? p.endDate.toDate() : 
-                (p.endDate?._seconds ? new Date(p.endDate._seconds * 1000) : 
-                (p.endDate ? new Date(p.endDate) : new Date())),
-              startDate: p.startDate?.toDate ? p.startDate.toDate() :
-                (p.startDate?._seconds ? new Date(p.startDate._seconds * 1000) : 
-                (p.startDate ? new Date(p.startDate) : new Date())),
-              createdAt: p.createdAt?.toDate ? p.createdAt.toDate() : 
-                (p.createdAt ? new Date(p.createdAt) : new Date()),
-              bids: p.bids?.length || p.totalBids || p.bidsCount || 0,
-              currentPrice: p.currentPrice || p.price || p.startingPrice || 0,
+              id: p.id || p._id, // Handle different ID formats
+              endDate: p.endDate?._seconds 
+                ? new Date(p.endDate._seconds * 1000) 
+                : (p.endDate ? new Date(p.endDate) : new Date()),
+              startDate: p.startDate?._seconds 
+                ? new Date(p.startDate._seconds * 1000) 
+                : (p.startDate ? new Date(p.startDate) : new Date()),
+              bids: p.totalBids || p.bidsCount || 0,
+              currentPrice: p.currentPrice || p.price || 0,
               images: Array.isArray(p.images) ? p.images : [p.images].filter(Boolean),
               seller: {
                 name: p.sellerName || 'Unknown',
@@ -138,12 +122,12 @@ const Products = () => {
       setProducts(processedProducts)
       productsCache = processedProducts
       cacheTimestamp = Date.now()
-      console.log('Processed', processedProducts.length, 'products')
+      console.log('Cached', processedProducts.length, 'products')
       setLoading(false)
     } catch (error: any) {
-      console.error('Error loading products from Firebase:', error)
-      if (error.code === 'permission-denied') {
-        toast.error('Permission denied. Please login to continue.')
+      console.error('Error loading products:', error)
+      if (error.code === 'ERR_NETWORK') {
+        toast.error('Network error. Please check your connection.')
       } else {
         toast.error('Failed to load products. Please refresh the page.')
       }
@@ -153,16 +137,12 @@ const Products = () => {
 
   const loadCategories = async () => {
     try {
-      // Use hardcoded categories since backend is down
-      const cats = [
-        'Electronics',
-        'Fashion',
-        'Home & Garden',
-        'Sports & Outdoors',
-        'Art & Collectibles'
-      ]
-      setCategories(cats)
-      categoriesCache = cats
+      const response = await axios.get('/api/categories')
+      if (response.data.success) {
+        const cats = response.data.data || []
+        setCategories(cats)
+        categoriesCache = cats
+      }
     } catch (error) {
       console.error('Error loading categories:', error)
     }

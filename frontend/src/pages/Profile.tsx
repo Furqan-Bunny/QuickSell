@@ -20,6 +20,7 @@ import { formatPrice } from '../utils/formatters'
 import toast from 'react-hot-toast'
 import { Link } from 'react-router-dom'
 import { 
+  getUserProfile,
   updateProfile, 
   uploadAvatar, 
   updateNotificationPreferences,
@@ -57,16 +58,58 @@ const Profile = () => {
     pushOutbid: true
   })
 
-  // Load user preferences on mount
+  // Update form data when user data changes (e.g., after refresh)
   useEffect(() => {
-    if (user && user.preferences && user.preferences.notifications) {
-      const userNotifications = user.preferences.notifications
-      setNotifications(prev => ({
-        ...prev,
-        ...userNotifications
-      }))
+    if (user) {
+      setFormData({
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+        username: user.username || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address?.street || '',
+        city: user.address?.city || '',
+        postalCode: user.address?.postalCode || '',
+        country: user.address?.country || 'South Africa'
+      })
+      
+      // Also update notifications if they exist
+      if (user.preferences && user.preferences.notifications) {
+        const userNotifications = user.preferences.notifications
+        setNotifications(prev => ({
+          ...prev,
+          ...userNotifications
+        }))
+      }
     }
   }, [user])
+  
+  // Load fresh user data on mount
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        const response = await getUserProfile()
+        if (response.success && response.data) {
+          const userData = response.data
+          // Update the auth store with fresh data
+          if (user) {
+            updateUser({
+              ...user,
+              ...userData,
+              id: userData.id || userData.uid || user.id,
+              uid: userData.uid || user.uid
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error)
+      }
+    }
+    
+    if (user) {
+      loadUserProfile()
+    }
+  }, [])
 
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: UserIcon },
@@ -97,10 +140,24 @@ const Profile = () => {
       const response = await updateProfile(profileData)
       
       if (response.success && user) {
-        updateUser({
+        // Properly merge the updated data with existing user data
+        const updatedUser = {
           ...user,
-          ...response.data
-        })
+          firstName: profileData.firstName,
+          lastName: profileData.lastName,
+          username: profileData.username,
+          email: profileData.email,
+          phone: profileData.phone,
+          address: {
+            street: profileData.address.street,
+            city: profileData.address.city,
+            postalCode: profileData.address.postalCode,
+            country: profileData.address.country
+          },
+          ...response.data // Include any additional data from response
+        }
+        
+        updateUser(updatedUser)
         toast.success('Profile updated successfully!')
         setIsEditing(false)
       }

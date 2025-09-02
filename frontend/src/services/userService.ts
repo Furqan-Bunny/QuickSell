@@ -8,6 +8,19 @@ const getAuthHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// Get user profile
+export const getUserProfile = async () => {
+  try {
+    const response = await axios.get(
+      `${API_URL}/users/profile`,
+      { headers: getAuthHeader() }
+    );
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || error;
+  }
+};
+
 // Update user profile
 export const updateProfile = async (profileData: any) => {
   try {

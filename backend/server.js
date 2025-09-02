@@ -86,8 +86,9 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Firebase is initialized in config/firebase.js
 if (!db) {
-  console.error('Firebase Firestore database not available');
-  process.exit(1);
+  console.warn('WARNING: Firebase Firestore database not available');
+  console.warn('Server will run with limited functionality');
+  // Don't exit - let the server run anyway
 }
 
 // Import routes

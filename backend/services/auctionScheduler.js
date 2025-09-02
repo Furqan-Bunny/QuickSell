@@ -1,7 +1,5 @@
-const admin = require('firebase-admin');
+const { admin, db } = require('../config/firebase');
 const emailService = require('./emailService');
-
-const db = admin.firestore();
 
 class AuctionScheduler {
   constructor() {
@@ -32,6 +30,11 @@ class AuctionScheduler {
 
   // Check for expired auctions and process them
   async checkExpiredAuctions() {
+    if (!db) {
+      console.log('Skipping auction check - Firebase not available');
+      return;
+    }
+    
     try {
       const now = new Date();
       

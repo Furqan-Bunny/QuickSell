@@ -39,10 +39,21 @@ const initializeFirebase = () => {
   }
 };
 
-const firebaseAdmin = initializeFirebase();
-const db = firebaseAdmin ? admin.firestore() : null;
-const auth = firebaseAdmin ? admin.auth() : null;
-const storage = firebaseAdmin ? admin.storage() : null;
+let firebaseAdmin = null;
+let db = null;
+let auth = null;
+let storage = null;
+
+try {
+  firebaseAdmin = initializeFirebase();
+  if (firebaseAdmin) {
+    db = admin.firestore();
+    auth = admin.auth();
+    storage = admin.storage();
+  }
+} catch (error) {
+  console.error('Failed to initialize Firebase services:', error.message);
+}
 
 module.exports = {
   admin: firebaseAdmin,

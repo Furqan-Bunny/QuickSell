@@ -4,6 +4,15 @@ const { admin, db } = require('../config/firebase');
 const { authMiddleware } = require('../middleware/auth');
 const emailService = require('../services/emailService');
 
+// Helper functions for Firebase operations
+const serverTimestamp = () => {
+  return admin && admin.firestore ? serverTimestamp() : new Date();
+};
+
+const increment = (value) => {
+  return admin && admin.firestore ? increment(value) : value;
+};
+
 // Place a bid
 router.post('/', authMiddleware, async (req, res) => {
   try {
@@ -92,8 +101,8 @@ router.post('/', authMiddleware, async (req, res) => {
         userName: `${userData.firstName} ${userData.lastName}`,
         amount,
         status: 'active',
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
       transaction.set(bidRef, bidData);
@@ -105,16 +114,16 @@ router.post('/', authMiddleware, async (req, res) => {
         previousBidderData = previousBid.data();
         transaction.update(previousBid.ref, { 
           status: 'outbid',
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          updatedAt: serverTimestamp()
         });
       }
       
       // Update product with new current price and bid count
       const updates = {
         currentPrice: amount,
-        totalBids: admin.firestore.FieldValue.increment(1),
-        lastBidAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        totalBids: increment(1),
+        lastBidAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
       
       // Track unique bidders
@@ -126,7 +135,7 @@ router.post('/', authMiddleware, async (req, res) => {
       );
       
       if (existingUserBid.empty) {
-        updates.uniqueBidders = admin.firestore.FieldValue.increment(1);
+        updates.uniqueBidders = increment(1);
       }
       
       transaction.update(productDoc.ref, updates);
@@ -336,8 +345,8 @@ router.delete('/:bidId', authMiddleware, async (req, res) => {
     // Update bid status
     await bidDoc.ref.update({
       status: 'cancelled',
-      cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      cancelledAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
     });
     
     // Find the next highest bid and make it active
@@ -355,13 +364,13 @@ router.delete('/:bidId', authMiddleware, async (req, res) => {
       // Update next bid to active
       await nextBid.ref.update({
         status: 'active',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: serverTimestamp()
       });
       
       // Update product current price
       await db.collection('products').doc(bid.productId).update({
         currentPrice: nextBidData.amount,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        updatedAt: serverTimestamp()
       });
     } else {
       // No other bids, reset to starting price
@@ -370,8 +379,8 @@ router.delete('/:bidId', authMiddleware, async (req, res) => {
       
       await productDoc.ref.update({
         currentPrice: product.startingPrice,
-        totalBids: admin.firestore.FieldValue.increment(-1),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        totalBids: increment(-1),
+        updatedAt: serverTimestamp()
       });
     }
     

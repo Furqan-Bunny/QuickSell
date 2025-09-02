@@ -85,7 +85,7 @@ const Home = () => {
                 Start Bidding
               </Link>
               <Link to="/register" className="btn-outline border-white text-white hover:bg-white/10 px-8 py-3 text-lg">
-                Register to Bid
+                Register Now
               </Link>
             </div>
             <p className="text-white/80 mt-4 text-sm">
@@ -239,7 +239,7 @@ const Home = () => {
               🔒 Registration Required to Place Bids
             </p>
             <p className="text-yellow-700 text-sm mt-1">
-              Create a free buyer account to start bidding on items
+              Create a free account to start bidding on items
             </p>
             <p className="text-yellow-600 text-xs mt-2 italic">
               Note: Only admin can list items for sale
@@ -247,7 +247,7 @@ const Home = () => {
           </div>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/register" className="btn-primary px-8 py-3 text-lg">
-              Register as Buyer - It's Free!
+              Register Now - It's Free!
             </Link>
             <Link to="/products" className="btn-outline px-8 py-3 text-lg">
               Browse Without Account

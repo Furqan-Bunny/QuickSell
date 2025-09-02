@@ -66,7 +66,7 @@ const Register = () => {
   const onSubmit = async (data: RegisterForm) => {
     try {
       const { confirmPassword, terms, ...registerData } = data
-      // All users register as buyers, admin is the only seller
+      // All users register as regular users, admin has selling privileges
       await registerUser({ ...registerData, role: 'user' })
       
       // Show success message if referred
@@ -257,7 +257,7 @@ const Register = () => {
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <h3 className="font-semibold text-blue-900 mb-1">Account Information</h3>
               <p className="text-sm text-blue-700">
-                You're registering as a <span className="font-semibold">Buyer</span>. 
+                You're creating a <span className="font-semibold">User Account</span>. 
                 You'll be able to browse products, place bids, and purchase items.
               </p>
               <p className="text-xs text-blue-600 mt-2">

@@ -158,27 +158,77 @@ router.get('/', async (req, res) => {
 // Get single product
 router.get('/:id', async (req, res) => {
   try {
-    const doc = await db.collection('products').doc(req.params.id).get();
+    const productId = req.params.id;
+    
+    // Validate product ID format
+    if (!productId || productId === 'undefined' || productId === 'null') {
+      return res.status(400).json({ error: 'Invalid product ID' });
+    }
+    
+    // Try to fetch the product
+    let doc;
+    try {
+      doc = await db.collection('products').doc(productId).get();
+    } catch (firestoreError) {
+      console.error('Firestore error:', firestoreError);
+      // If Firestore throws an error (invalid ID format), return 400
+      if (firestoreError.code === 'invalid-argument') {
+        return res.status(400).json({ error: 'Invalid product ID format' });
+      }
+      throw firestoreError;
+    }
     
     if (!doc.exists) {
+      console.log('Product not found:', productId);
       return res.status(404).json({ error: 'Product not found' });
     }
     
-    // Increment view count
-    await db.collection('products').doc(req.params.id).update({
-      views: admin.firestore.FieldValue.increment(1)
-    });
+    const productData = doc.data();
+    
+    // Only increment view count if product is active
+    if (productData.status === 'active') {
+      try {
+        await db.collection('products').doc(productId).update({
+          views: admin.firestore.FieldValue.increment(1)
+        });
+      } catch (updateError) {
+        // Don't fail the request if view count update fails
+        console.error('Failed to update view count:', updateError);
+      }
+    }
+    
+    // Get related data (bids) if needed
+    let bids = [];
+    try {
+      const bidsSnapshot = await db.collection('bids')
+        .where('productId', '==', productId)
+        .orderBy('amount', 'desc')
+        .limit(10)
+        .get();
+      
+      bids = bidsSnapshot.docs.map(bidDoc => ({
+        id: bidDoc.id,
+        ...bidDoc.data()
+      }));
+    } catch (bidsError) {
+      console.log('Could not fetch bids:', bidsError);
+      // Continue without bids
+    }
     
     res.json({
       success: true,
       data: {
         id: doc.id,
-        ...doc.data()
-      }
+        ...productData
+      },
+      bids
     });
   } catch (error) {
     console.error('Error fetching product:', error);
-    res.status(500).json({ error: 'Failed to fetch product' });
+    res.status(500).json({ 
+      error: 'Failed to fetch product',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

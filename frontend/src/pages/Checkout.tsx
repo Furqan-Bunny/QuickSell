@@ -14,7 +14,8 @@ import {
   UserIcon,
   CheckCircleIcon,
   ShieldCheckIcon,
-  InformationCircleIcon
+  InformationCircleIcon,
+  ArrowLeftIcon
 } from '@heroicons/react/24/outline'
 
 interface ShippingInfo {
@@ -68,8 +69,18 @@ const Checkout = () => {
 
     // Get checkout data from location state
     if (!location.state?.item) {
-      toast.error('No item to checkout')
-      navigate('/')
+      // Try to get product ID from URL params if available
+      const urlParams = new URLSearchParams(window.location.search)
+      const productId = urlParams.get('productId')
+      
+      if (productId) {
+        // Redirect to product page to restart checkout process
+        toast.error('Session expired. Please try again.')
+        navigate(`/products/${productId}`)
+      } else {
+        toast.error('No item to checkout. Please select a product.')
+        navigate('/products')
+      }
       return
     }
 
@@ -282,19 +293,35 @@ const Checkout = () => {
       animate={{ opacity: 1, y: 0 }}
       className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
     >
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Checkout</h1>
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center">
+          <button
+            onClick={() => {
+              if (checkoutItem?.productId) {
+                navigate(`/products/${checkoutItem.productId}`)
+              } else {
+                navigate('/products')
+              }
+            }}
+            className="mr-4 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+          >
+            <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
+          </button>
+          <h1 className="text-3xl font-bold text-gray-900">Checkout</h1>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
         {/* Left Column - Shipping & Payment */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-4 sm:space-y-6">
           {/* Shipping Information */}
           <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center">
               <TruckIcon className="h-6 w-6 mr-2 text-primary-600" />
               Shipping Information
             </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   <UserIcon className="inline h-4 w-4 mr-1" />
@@ -359,7 +386,7 @@ const Checkout = () => {
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Street Address *
                 </label>
@@ -406,7 +433,7 @@ const Checkout = () => {
                 </select>
               </div>
 
-              <div className="md:col-span-2">
+              <div className="sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Country
                 </label>
@@ -423,14 +450,14 @@ const Checkout = () => {
 
           {/* Payment Method */}
           <div className="card">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4 sm:mb-6 flex items-center">
               <CreditCardIcon className="h-6 w-6 mr-2 text-primary-600" />
               Payment Method
             </h2>
 
             <div className="space-y-3">
               {/* Wallet Option */}
-              <label className="relative flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+              <label className="relative flex flex-col sm:flex-row items-start p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -439,10 +466,10 @@ const Checkout = () => {
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
                   className="mt-1"
                 />
-                <div className="ml-3 flex-1">
-                  <div className="flex items-center justify-between">
+                <div className="ml-0 sm:ml-3 mt-2 sm:mt-0 flex-1 w-full">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                     <div>
-                      <div className="font-medium text-gray-900 flex items-center">
+                      <div className="font-medium text-gray-900 flex items-center gap-2">
                         <WalletIcon className="h-5 w-5 mr-2 text-green-600" />
                         Wallet Balance
                       </div>
@@ -458,7 +485,7 @@ const Checkout = () => {
                     </div>
                   </div>
                   {paymentMethod === 'wallet' && userBalance < (checkoutItem?.price || 0) && (
-                    <div className="mt-2 p-2 bg-red-50 text-red-700 text-sm rounded-md flex items-center">
+                    <div className="mt-2 p-2 bg-red-50 text-red-700 text-xs sm:text-sm rounded-md flex items-center">
                       <InformationCircleIcon className="h-4 w-4 mr-1" />
                       Insufficient balance. Please choose another payment method.
                     </div>
@@ -467,7 +494,7 @@ const Checkout = () => {
               </label>
 
               {/* PayFast Option */}
-              <label className="relative flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+              <label className="relative flex flex-col sm:flex-row items-start p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -476,7 +503,7 @@ const Checkout = () => {
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
                   className="mt-1"
                 />
-                <div className="ml-3 flex-1">
+                <div className="ml-0 sm:ml-3 mt-2 sm:mt-0 flex-1 w-full">
                   <div className="font-medium text-gray-900 flex items-center">
                     <img src="/payfast-logo.svg" alt="PayFast" className="h-5 mr-2" />
                     PayFast
@@ -484,7 +511,7 @@ const Checkout = () => {
                   <p className="text-sm text-gray-500 mt-1">
                     Credit/Debit Cards, Instant EFT, QR Payments (South Africa)
                   </p>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     <span className="text-xs bg-gray-100 px-2 py-1 rounded">Visa</span>
                     <span className="text-xs bg-gray-100 px-2 py-1 rounded">Mastercard</span>
                     <span className="text-xs bg-gray-100 px-2 py-1 rounded">Instant EFT</span>
@@ -493,7 +520,7 @@ const Checkout = () => {
               </label>
 
               {/* Flutterwave Option */}
-              <label className="relative flex items-start p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+              <label className="relative flex flex-col sm:flex-row items-start p-3 sm:p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
                 <input
                   type="radio"
                   name="paymentMethod"
@@ -502,14 +529,14 @@ const Checkout = () => {
                   onChange={(e) => setPaymentMethod(e.target.value as any)}
                   className="mt-1"
                 />
-                <div className="ml-3 flex-1">
+                <div className="ml-0 sm:ml-3 mt-2 sm:mt-0 flex-1 w-full">
                   <div className="font-medium text-gray-900">
                     Flutterwave
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
                     International Cards, Mobile Money, Bank Transfer
                   </p>
-                  <div className="flex gap-2 mt-2">
+                  <div className="flex flex-wrap gap-2 mt-2">
                     <span className="text-xs bg-gray-100 px-2 py-1 rounded">International</span>
                     <span className="text-xs bg-gray-100 px-2 py-1 rounded">Mobile Money</span>
                   </div>
@@ -535,13 +562,13 @@ const Checkout = () => {
             </h2>
 
             {/* Item */}
-            <div className="flex space-x-4 pb-4 border-b">
+            <div className="flex space-x-2 sm:space-x-4 pb-4 border-b">
               <img
                 src={checkoutItem.image}
                 alt={checkoutItem.title}
                 className="w-20 h-20 object-cover rounded-lg"
               />
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-gray-900">{checkoutItem.title}</h3>
                 <p className="text-sm text-gray-500 mt-1">
                   {checkoutItem.type === 'auction_win' ? 'Auction Win' : 'Buy Now'}
@@ -554,15 +581,15 @@ const Checkout = () => {
 
             {/* Price Breakdown */}
             <div className="space-y-3 py-4 border-b">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-gray-600">Subtotal</span>
                 <span className="font-medium">{formatPrice(checkoutItem.price)}</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-gray-600">Shipping</span>
                 <span className="font-medium">Free</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-gray-600">Tax (15% VAT)</span>
                 <span className="font-medium">{formatPrice(checkoutItem.price * 0.15)}</span>
               </div>
@@ -570,7 +597,7 @@ const Checkout = () => {
 
             {/* Total */}
             <div className="py-4">
-              <div className="flex justify-between text-lg font-semibold">
+              <div className="flex justify-between text-base sm:text-lg font-semibold">
                 <span>Total</span>
                 <span className="text-primary-600">
                   {formatPrice(checkoutItem.price * 1.15)}

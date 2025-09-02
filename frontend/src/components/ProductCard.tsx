@@ -18,6 +18,12 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
   const [isWishlisted, setIsWishlisted] = useState(initialWishlisted)
   const [isLoading, setIsLoading] = useState(false)
   
+  // Validate product data
+  if (!product || !product.id) {
+    console.error('Invalid product data:', product)
+    return null
+  }
+  
   // Check if product is in user's wishlist
   useEffect(() => {
     if (user?.watchlist && product?.id) {
@@ -56,8 +62,20 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
     }
   }
 
-  const timeLeft = getTimeRemaining(product.endDate)
-  const isEndingSoon = new Date(product.endDate).getTime() - Date.now() < 24 * 60 * 60 * 1000
+  // Safe date handling
+  const endDate = product.endDate ? new Date(product.endDate) : new Date()
+  const timeLeft = getTimeRemaining(endDate)
+  const isEndingSoon = endDate.getTime() - Date.now() < 24 * 60 * 60 * 1000
+  
+  // Safe default values
+  const productTitle = product.title || 'Untitled Product'
+  const productImages = product.images || []
+  const productPrice = product.currentPrice || 0
+  const productViews = product.views || 0
+  const productBids = product.bids || product.totalBids || product.bidsCount || 0
+  const productLocation = product.location || product.shipping?.location || 'South Africa'
+  const productCategory = product.category || 'Uncategorized'
+  const productCondition = product.condition || 'Used'
 
   return (
     <Link to={`/products/${product.id}`} className="block h-full">
@@ -65,10 +83,13 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
         {/* Image */}
         <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 flex-shrink-0">
           <img
-            src={product.images?.[0] || '/placeholder.jpg'}
-            alt={product.title}
+            src={productImages[0] || 'https://via.placeholder.com/400x400?text=No+Image'}
+            alt={productTitle}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
             loading="lazy"
+            onError={(e) => {
+              e.currentTarget.src = 'https://via.placeholder.com/400x400?text=No+Image'
+            }}
           />
           
           {/* Wishlist Button */}
@@ -104,10 +125,10 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
             <div className="flex justify-between text-white text-sm">
               <span className="flex items-center gap-1">
                 <EyeIcon className="h-4 w-4" />
-                {product.views}
+                {productViews}
               </span>
               <span className="font-bold">
-                {product.bids} bid{product.bids !== 1 ? 's' : ''}
+                {productBids} bid{productBids !== 1 ? 's' : ''}
               </span>
             </div>
           </div>
@@ -116,7 +137,7 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
         {/* Content */}
         <div className="flex-1 flex flex-col">
           <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-primary-600 transition-colors min-h-[3rem]">
-            {product.title}
+            {productTitle}
           </h3>
 
           {/* Seller */}
@@ -133,7 +154,7 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
 
           {/* Location */}
           <div className="text-xs text-gray-500 mb-2">
-            📍 {product.location}
+            📍 {productLocation}
           </div>
 
           {/* Price */}
@@ -142,7 +163,7 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
               <div>
                 <div className="text-xs text-gray-500">Current bid</div>
                 <div className="text-xl font-bold text-primary-600">
-                  {formatPrice(product.currentPrice)}
+                  {formatPrice(productPrice)}
                 </div>
               </div>
               {product.buyNowPrice && (
@@ -178,10 +199,10 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
           {/* Category & Condition */}
           <div className="flex gap-2 mt-auto pt-2">
             <span className="badge bg-primary-100 text-primary-700 text-xs">
-              {product.category}
+              {productCategory}
             </span>
             <span className="badge bg-gray-100 text-gray-700 text-xs">
-              {product.condition}
+              {productCondition}
             </span>
           </div>
         </div>

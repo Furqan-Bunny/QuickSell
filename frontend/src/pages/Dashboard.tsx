@@ -112,9 +112,9 @@ const Dashboard = () => {
       className="space-y-6"
     >
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-6">
-        <div className="flex justify-between items-start">
-          <div>
+      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="w-full sm:w-auto">
             <h1 className="text-3xl font-bold text-gray-900">
               Welcome back, {user?.firstName || 'User'}!
             </h1>
@@ -128,13 +128,13 @@ const Dashboard = () => {
               </div>
             )}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 w-full sm:w-auto">
             <Link 
               to="/withdrawals"
-              className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-700 transition"
+              className="flex items-center justify-center sm:justify-start gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-700 transition"
             >
               <BanknotesIcon className="h-5 w-5" />
-              Withdraw Balance
+              <span className="whitespace-nowrap">Withdraw Balance</span>
             </Link>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useAuthStore } from '../store/authStore'
 import {
   UserIcon,
@@ -56,6 +56,17 @@ const Profile = () => {
     pushWins: true,
     pushOutbid: true
   })
+
+  // Load user preferences on mount
+  useEffect(() => {
+    if (user && user.preferences && user.preferences.notifications) {
+      const userNotifications = user.preferences.notifications
+      setNotifications(prev => ({
+        ...prev,
+        ...userNotifications
+      }))
+    }
+  }, [user])
 
   const tabs = [
     { id: 'personal', label: 'Personal Info', icon: UserIcon },
@@ -126,10 +137,25 @@ const Profile = () => {
   const handleNotificationUpdate = async () => {
     setIsLoading(true)
     try {
-      await updateNotificationPreferences(notifications)
-      toast.success('Notification preferences updated!')
+      const response = await updateNotificationPreferences(notifications)
+      if (response.success) {
+        // Update local user state with new preferences
+        if (user) {
+          updateUser({
+            ...user,
+            preferences: {
+              ...user.preferences,
+              notifications
+            }
+          })
+        }
+        toast.success('Notification preferences updated!')
+      } else {
+        toast.error('Failed to update preferences')
+      }
     } catch (error: any) {
-      toast.error(error.error || 'Failed to update preferences')
+      console.error('Error updating notifications:', error)
+      toast.error(error.message || error.error || 'Failed to update preferences')
     } finally {
       setIsLoading(false)
     }
@@ -172,18 +198,18 @@ const Profile = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
-      className="space-y-6"
+      className="space-y-4 sm:space-y-6"
     >
       {/* Header */}
-      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+      <div className="bg-gradient-to-r from-primary-50 to-secondary-50 rounded-xl p-4 sm:p-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center space-x-3 sm:space-x-4">
             <div className="relative">
-              <div className="h-20 w-20 bg-primary-100 rounded-full flex items-center justify-center">
+              <div className="h-16 w-16 sm:h-20 sm:w-20 bg-primary-100 rounded-full flex items-center justify-center">
                 {user?.avatar ? (
-                  <img src={user.avatar} alt={user.username} className="h-20 w-20 rounded-full" />
+                  <img src={user.avatar} alt={user.username} className="h-16 w-16 sm:h-20 sm:w-20 rounded-full" />
                 ) : (
-                  <UserIcon className="h-10 w-10 text-primary-600" />
+                  <UserIcon className="h-8 w-8 sm:h-10 sm:w-10 text-primary-600" />
                 )}
               </div>
               <button 
@@ -202,7 +228,7 @@ const Profile = () => {
               />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
                 {user?.firstName} {user?.lastName}
               </h1>
               <p className="text-gray-600">@{user?.username}</p>
@@ -221,29 +247,30 @@ const Profile = () => {
               </div>
             </div>
           </div>
-          <div className="text-right">
+          <div className="w-full sm:w-auto text-left sm:text-right">
             <p className="text-sm text-gray-600">Account Balance</p>
-            <p className="text-2xl font-bold text-gray-900">{formatPrice(user?.balance || 0)}</p>
-            <button className="btn-primary mt-2 text-sm">Add Funds</button>
+            <p className="text-xl sm:text-2xl font-bold text-gray-900">{formatPrice(user?.balance || 0)}</p>
+            <button className="btn-primary mt-2 text-sm w-full sm:w-auto">Add Funds</button>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
+      <div className="border-b border-gray-200 overflow-x-auto">
+        <nav className="-mb-px flex space-x-4 sm:space-x-8 min-w-full">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center py-2 px-1 border-b-2 font-medium text-sm ${
+              className={`flex items-center py-2 px-1 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                 activeTab === tab.id
                   ? 'border-primary-500 text-primary-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              <tab.icon className="h-5 w-5 mr-2" />
-              {tab.label}
+              <tab.icon className="h-4 w-4 sm:h-5 sm:w-5 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{tab.label}</span>
+              <span className="sm:hidden">{tab.label.split(' ')[0]}</span>
             </button>
           ))}
         </nav>
@@ -273,7 +300,7 @@ const Profile = () => {
             </div>
 
             <form onSubmit={handleUpdateProfile} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     First Name
@@ -362,7 +389,7 @@ const Profile = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     City
@@ -416,7 +443,7 @@ const Profile = () => {
             <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Change Password</h3>
-                <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
+                <form onSubmit={handleChangePassword} className="space-y-4 max-w-full sm:max-w-md">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Current Password
@@ -591,26 +618,26 @@ const Profile = () => {
             
             <div className="space-y-6">
               {/* Wallet Balance Section */}
-              <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-6 text-white">
-                <div className="flex items-center justify-between">
+              <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-4 sm:p-6 text-white">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <BanknotesIcon className="h-6 w-6" />
                       <h3 className="text-lg font-medium">Wallet Balance</h3>
                     </div>
-                    <p className="text-3xl font-bold">{formatPrice(user?.balance || 0)}</p>
+                    <p className="text-2xl sm:text-3xl font-bold">{formatPrice(user?.balance || 0)}</p>
                     <p className="text-primary-100 text-sm mt-1">Available for bidding and purchases</p>
                   </div>
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 w-full sm:w-auto">
                     <Link 
                       to="/withdrawals"
-                      className="flex items-center gap-2 bg-white text-primary-600 px-4 py-2 rounded-lg font-semibold hover:bg-primary-50 transition"
+                      className="flex items-center justify-center gap-2 bg-white text-primary-600 px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-primary-50 transition text-sm sm:text-base"
                     >
                       <BanknotesIcon className="h-5 w-5" />
                       Withdraw Funds
                       <ArrowRightIcon className="h-4 w-4" />
                     </Link>
-                    <button className="flex items-center gap-2 bg-primary-500 text-white px-4 py-2 rounded-lg font-semibold hover:bg-primary-400 transition">
+                    <button className="flex items-center justify-center gap-2 bg-primary-500 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-primary-400 transition text-sm sm:text-base">
                       Add Funds
                     </button>
                   </div>
@@ -638,32 +665,32 @@ const Profile = () => {
 
               <div className="border-t pt-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Billing History</h3>
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto -mx-4 sm:mx-0">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead>
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                        <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                        <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                        <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                        <th className="px-2 sm:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                       <tr>
-                        <td className="px-4 py-2 text-sm">2024-01-15</td>
-                        <td className="px-4 py-2 text-sm">Won Auction - iPhone 14 Pro</td>
-                        <td className="px-4 py-2 text-sm">{formatPrice(16500)}</td>
-                        <td className="px-4 py-2">
+                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">2024-01-15</td>
+                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">Won Auction - iPhone 14 Pro</td>
+                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">{formatPrice(16500)}</td>
+                        <td className="px-2 sm:px-4 py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Paid
                           </span>
                         </td>
                       </tr>
                       <tr>
-                        <td className="px-4 py-2 text-sm">2024-01-10</td>
-                        <td className="px-4 py-2 text-sm">Account Top-up</td>
-                        <td className="px-4 py-2 text-sm">{formatPrice(5000)}</td>
-                        <td className="px-4 py-2">
+                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">2024-01-10</td>
+                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">Account Top-up</td>
+                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">{formatPrice(5000)}</td>
+                        <td className="px-2 sm:px-4 py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Completed
                           </span>

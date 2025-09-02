@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import axios from 'axios'
+import toast from 'react-hot-toast'
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -57,23 +58,45 @@ const Products = () => {
       const response = await axios.get('/api/products')
       const rawProducts = response.data.data || []
       
-      // Process Firebase timestamp format
-      const processedProducts = rawProducts.map((p: any) => ({
-        ...p,
-        endDate: p.endDate?._seconds ? new Date(p.endDate._seconds * 1000) : new Date(),
-        startDate: p.startDate?._seconds ? new Date(p.startDate._seconds * 1000) : new Date(),
-        bids: p.totalBids || 0,
-        seller: {
-          name: p.sellerName || 'Unknown',
-          verified: p.verified || false,
-          rating: p.averageRating || 0
-        }
-      }))
+      // Process Firebase timestamp format and validate each product
+      const processedProducts = rawProducts
+        .filter((p: any) => p && p.id) // Filter out invalid products
+        .map((p: any) => {
+          try {
+            return {
+              ...p,
+              id: p.id || p._id, // Handle different ID formats
+              endDate: p.endDate?._seconds 
+                ? new Date(p.endDate._seconds * 1000) 
+                : (p.endDate ? new Date(p.endDate) : new Date()),
+              startDate: p.startDate?._seconds 
+                ? new Date(p.startDate._seconds * 1000) 
+                : (p.startDate ? new Date(p.startDate) : new Date()),
+              bids: p.totalBids || p.bidsCount || 0,
+              currentPrice: p.currentPrice || p.price || 0,
+              images: Array.isArray(p.images) ? p.images : [p.images].filter(Boolean),
+              seller: {
+                name: p.sellerName || 'Unknown',
+                verified: p.verified || false,
+                rating: p.averageRating || 0
+              }
+            }
+          } catch (processError) {
+            console.error('Error processing product:', p.id, processError)
+            return null
+          }
+        })
+        .filter(Boolean) // Remove any null products from processing errors
       
       setProducts(processedProducts)
       setLoading(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading products:', error)
+      if (error.code === 'ERR_NETWORK') {
+        toast.error('Network error. Please check your connection.')
+      } else {
+        toast.error('Failed to load products. Please refresh the page.')
+      }
       setLoading(false)
     }
   }
@@ -359,7 +382,7 @@ const Products = () => {
           {/* Products */}
           {currentProducts.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                 {currentProducts.map((product, index) => (
                   <motion.div
                     key={product.id}

@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import AdminRoute from './components/AdminRoute'
 import LoadingSpinner from './components/LoadingSpinner'
 import './config/axios' // Initialize axios configuration
+import './styles/responsive.css' // Responsive utilities
 
 // Pages
 import Home from './pages/Home'

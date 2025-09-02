@@ -234,6 +234,13 @@ const Notifications = () => {
     toast.success('All read notifications cleared')
   }
 
+  const clearAllNotifications = () => {
+    if (window.confirm('Are you sure you want to clear all notifications? This action cannot be undone.')) {
+      notificationService.clearAllNotifications()
+      toast.success('All notifications cleared')
+    }
+  }
+
   const getNotificationIcon = (type: string, priority: string) => {
     const baseClasses = "h-5 w-5"
     const colorClasses = priority === 'urgent' ? 'text-red-500' :
@@ -324,7 +331,7 @@ const Notifications = () => {
               Stay updated with your auction activity and important updates
             </p>
           </div>
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-2">
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
@@ -334,13 +341,24 @@ const Notifications = () => {
                 Mark All Read
               </button>
             )}
-            <button
-              onClick={deleteAllRead}
-              className="btn-outline text-sm text-red-600 border-red-300 hover:bg-red-50"
-            >
-              <TrashIcon className="h-4 w-4 mr-1" />
-              Clear Read
-            </button>
+            {notifications.filter(n => n.read).length > 0 && (
+              <button
+                onClick={deleteAllRead}
+                className="btn-outline text-sm text-orange-600 border-orange-300 hover:bg-orange-50"
+              >
+                <TrashIcon className="h-4 w-4 mr-1" />
+                Clear Read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                onClick={clearAllNotifications}
+                className="btn-outline text-sm text-red-600 border-red-300 hover:bg-red-50"
+              >
+                <TrashIcon className="h-4 w-4 mr-1" />
+                Clear All
+              </button>
+            )}
           </div>
         </div>
       </div>

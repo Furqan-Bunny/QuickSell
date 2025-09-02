@@ -47,39 +47,85 @@ const ProductDetail = () => {
   } = useForm<BidForm>()
 
   useEffect(() => {
-    fetchProduct()
+    let mounted = true;
+    let retryCount = 0;
+    const maxRetries = 2;
+    
+    const fetchWithRetry = async () => {
+      if (!mounted) return;
+      
+      try {
+        await fetchProduct();
+      } catch (error) {
+        if (retryCount < maxRetries && mounted) {
+          retryCount++;
+          console.log(`Retrying product fetch (${retryCount}/${maxRetries})...`);
+          setTimeout(() => fetchWithRetry(), 1000 * retryCount);
+        }
+      }
+    };
+    
+    fetchWithRetry();
     
     // Connect to socket for real-time updates
     const newSocket = createSocket()
     setSocket(newSocket)
     
-    if (id) {
+    if (id && id !== 'undefined' && id !== 'null') {
       newSocket.emit('join-auction', id)
       
       newSocket.on('new-bid', (bidData: any) => {
-        setProduct((prev: any) => ({
-          ...prev,
-          currentPrice: bidData.amount,
-          totalBids: prev.totalBids + 1
-        }))
-        setBids((prev) => [bidData, ...prev])
-        toast.success(`New bid placed: $${bidData.amount}`)
+        if (mounted) {
+          setProduct((prev: any) => ({
+            ...prev,
+            currentPrice: bidData.amount,
+            totalBids: prev.totalBids + 1
+          }))
+          setBids((prev) => [bidData, ...prev])
+          toast.success(`New bid placed: $${bidData.amount}`)
+        }
       })
     }
     
     return () => {
+      mounted = false;
       newSocket.close()
     }
   }, [id])
 
   const fetchProduct = async () => {
+    // Validate product ID
+    if (!id || id === 'undefined' || id === 'null') {
+      console.error('Invalid product ID:', id)
+      toast.error('Invalid product ID')
+      navigate('/products')
+      return
+    }
+
     try {
-      const response = await axios.get(`/api/products/${id}`)
+      setLoading(true)
+      
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 second timeout
+      
+      const response = await axios.get(`/api/products/${id}`, {
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
+      // Validate response
+      if (!response.data || (!response.data.data && !response.data.product)) {
+        throw new Error('Invalid response format')
+      }
+      
       const productData = response.data.data || response.data.product || response.data
       
       // Process Firebase timestamp format
       const processedProduct = {
         ...productData,
+        id: productData.id || id, // Ensure ID is always set
         endDate: productData.endDate?._seconds 
           ? new Date(productData.endDate._seconds * 1000) 
           : new Date(productData.endDate),
@@ -117,12 +163,25 @@ const ProductDetail = () => {
       setValue('amount', minBid)
     } catch (error: any) {
       console.error('Error fetching product:', error)
-      if (error.response?.status === 404) {
-        toast.error('Product not found')
-      } else {
-        toast.error('Failed to load product')
-      }
       setLoading(false)
+      
+      // Handle specific error cases
+      if (error.name === 'AbortError') {
+        toast.error('Request timed out. Please try again.')
+        throw error; // Allow retry
+      } else if (error.response?.status === 404) {
+        toast.error('Product not found')
+        setTimeout(() => navigate('/products'), 2000)
+      } else if (error.response?.status === 400) {
+        toast.error('Invalid product ID')
+        setTimeout(() => navigate('/products'), 2000)
+      } else if (error.code === 'ERR_NETWORK') {
+        toast.error('Network error. Please check your connection.')
+        throw error; // Allow retry
+      } else {
+        toast.error('Failed to load product. Please try again.')
+        throw error; // Allow retry
+      }
     }
   }
 
@@ -156,10 +215,11 @@ const ProductDetail = () => {
     const amount = product.buyNowPrice || product.currentPrice
     
     // Navigate to checkout page with product details
-    navigate('/checkout', {
+    const productId = product.id || id
+    navigate(`/checkout?productId=${productId}`, {
       state: {
         item: {
-          productId: product.id,
+          productId: productId,
           title: product.title,
           image: product.images?.[0] || 'https://via.placeholder.com/200',
           price: amount,
@@ -217,7 +277,7 @@ const ProductDetail = () => {
       transition={{ duration: 0.5 }}
       className="max-w-7xl mx-auto"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
         {/* Image Gallery */}
         <div>
           {images.length > 0 ? (
@@ -235,7 +295,7 @@ const ProductDetail = () => {
           {/* Seller Info */}
           <div className="card mt-6">
             <h3 className="font-semibold text-gray-900 mb-4">Seller Information</h3>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3 sm:space-x-4">
               <div className="h-12 w-12 bg-primary-100 rounded-full flex items-center justify-center">
                 {product.seller?.avatar ? (
                   <img src={product.seller.avatar} alt={product.seller.username} className="h-12 w-12 rounded-full" />
@@ -269,9 +329,9 @@ const ProductDetail = () => {
         <div className="space-y-6">
           {/* Title and Actions */}
           <div>
-            <div className="flex justify-between items-start mb-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start gap-2 mb-2">
               <h1 className="text-3xl font-bold text-gray-900">{product.title}</h1>
-              <div className="flex space-x-2">
+              <div className="flex space-x-2 w-full sm:w-auto">
                 <button
                   onClick={handleWishlist}
                   className="p-2 rounded-full hover:bg-gray-100"
@@ -287,7 +347,7 @@ const ProductDetail = () => {
                 </button>
               </div>
             </div>
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-sm text-gray-500">
               <span className="badge bg-gray-100 text-gray-700">
                 {product.category?.name}
               </span>
@@ -299,7 +359,7 @@ const ProductDetail = () => {
           {/* Auction Timer */}
           {!isAuctionEnded && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                 <div className="flex items-center space-x-2">
                   <ClockIcon className="h-5 w-5 text-red-600" />
                   <span className="font-semibold text-red-900">Time Remaining:</span>
@@ -356,7 +416,7 @@ const ProductDetail = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Your Bid (minimum: R{minimumBid.toLocaleString()})
                     </label>
-                    <div className="flex space-x-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       <input
                         {...register('amount', {
                           required: 'Bid amount is required',
@@ -367,7 +427,7 @@ const ProductDetail = () => {
                         })}
                         type="number"
                         step="0.01"
-                        className="input-field flex-1"
+                        className="input-field flex-1 w-full sm:w-auto"
                         placeholder={`Enter bid amount`}
                       />
                       <button type="submit" className="btn-primary px-8">
@@ -397,7 +457,7 @@ const ProductDetail = () => {
           </div>
 
           {/* Features */}
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <div className="text-center">
               <ShieldCheckIcon className="h-8 w-8 text-primary-600 mx-auto mb-2" />
               <p className="text-sm text-gray-600">Buyer Protection</p>
@@ -415,7 +475,7 @@ const ProductDetail = () => {
           {/* Tabs */}
           <div>
             <div className="border-b border-gray-200">
-              <nav className="-mb-px flex space-x-8">
+              <nav className="-mb-px flex space-x-4 sm:space-x-8 overflow-x-auto">
                 {['description', 'shipping', 'bids', 'questions'].map((tab) => (
                   <button
                     key={tab}
@@ -440,7 +500,7 @@ const ProductDetail = () => {
                     <div className="mt-6">
                       <h3 className="font-semibold text-gray-900 mb-4">Specifications</h3>
                       <div className="bg-gray-50 rounded-lg p-4">
-                        <dl className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {Object.entries(product.specifications).map(([key, value]: [string, any]) => (
                             <div key={key}>
                               <dt className="font-medium text-gray-600 capitalize text-sm">{key.replace(/([A-Z])/g, ' $1').trim()}:</dt>
@@ -462,20 +522,20 @@ const ProductDetail = () => {
                       Shipping Information
                     </h3>
                     <div className="space-y-2">
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-2">
                         <span className="text-blue-700">Shipping Cost:</span>
                         <span className="font-medium text-blue-900">
                           {product.shipping?.cost ? `R${product.shipping.cost}` : 'Free'}
                         </span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex justify-between gap-2">
                         <span className="text-blue-700">Location:</span>
                         <span className="font-medium text-blue-900">{product.shipping?.location || 'South Africa'}</span>
                       </div>
                       {product.shipping?.methods && (
                         <div>
                           <span className="text-blue-700">Available Methods:</span>
-                          <div className="mt-1 flex flex-wrap gap-2">
+                          <div className="mt-1 flex flex-wrap gap-1 sm:gap-2">
                             {product.shipping.methods.map((method: string, index: number) => (
                               <span key={index} className="px-2 py-1 bg-blue-200 text-blue-800 rounded-full text-xs">
                                 {method}
@@ -542,13 +602,13 @@ const ProductDetail = () => {
                           initial={{ opacity: 0, x: -20 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: index * 0.1 }}
-                          className={`flex items-center justify-between p-4 rounded-lg border-2 ${
+                          className={`flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-lg border-2 ${
                             index === 0 
                               ? 'bg-primary-50 border-primary-200' 
                               : 'bg-gray-50 border-gray-200'
                           }`}
                         >
-                          <div className="flex items-center space-x-3">
+                          <div className="flex items-center space-x-2 sm:space-x-3">
                             {bid.bidder?.avatar ? (
                               <img 
                                 src={bid.bidder.avatar} 

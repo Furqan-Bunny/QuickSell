@@ -23,6 +23,16 @@ interface User {
     country?: string
   }
   watchlist?: string[]
+  preferences?: {
+    notifications?: {
+      emailBids?: boolean
+      emailWins?: boolean
+      emailOutbid?: boolean
+      pushBids?: boolean
+      pushWins?: boolean
+      pushOutbid?: boolean
+    }
+  }
 }
 
 interface AuthState {

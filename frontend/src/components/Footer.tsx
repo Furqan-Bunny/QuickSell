@@ -22,13 +22,13 @@ const Footer = () => {
               Your premier online auction platform. Buy and sell with confidence.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <a href="https://www.facebook.com/people/Minz/100091212656085/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
                 <FaFacebook size={20} />
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
                 <FaTwitter size={20} />
               </a>
-              <a href="#" className="text-gray-400 hover:text-white transition-colors">
+              <a href="https://www.instagram.com/minzolor/" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">
                 <FaInstagram size={20} />
               </a>
               <a href="#" className="text-gray-400 hover:text-white transition-colors">
@@ -97,15 +97,15 @@ const Footer = () => {
             <ul className="space-y-3">
               <li className="flex items-center space-x-2">
                 <MapPinIcon className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-400">123 Auction St, NY 10001</span>
+                <span className="text-gray-400">Cape Town, South Africa</span>
               </li>
               <li className="flex items-center space-x-2">
                 <PhoneIcon className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-400">+1 (555) 123-4567</span>
+                <a href="tel:+27213002030" className="text-gray-400 hover:text-white transition-colors">+27 21 300 2030</a>
               </li>
               <li className="flex items-center space-x-2">
                 <EnvelopeIcon className="h-5 w-5 text-gray-400" />
-                <span className="text-gray-400">support@quicksell.com</span>
+                <a href="mailto:info@minzolor.com" className="text-gray-400 hover:text-white transition-colors">info@minzolor.com</a>
               </li>
             </ul>
           </div>

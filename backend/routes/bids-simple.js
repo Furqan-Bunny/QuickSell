@@ -58,15 +58,16 @@ router.post('/', authMiddleware, async (req, res) => {
     }
     const userData = userDoc.data();
     
-    // Create bid data
+    // Create bid data with ISO string dates for consistency
+    const now = new Date();
     const bidData = {
       productId,
       userId,
       userName: `${userData.firstName || 'Unknown'} ${userData.lastName || 'User'}`,
       amount,
       status: 'active',
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: now.toISOString(),
+      updatedAt: now.toISOString()
     };
     
     // Simple approach: Just add the bid and update the product
@@ -78,8 +79,8 @@ router.post('/', authMiddleware, async (req, res) => {
       await productDoc.ref.update({
         currentPrice: amount,
         totalBids: (product.totalBids || 0) + 1,
-        lastBidAt: new Date(),
-        updatedAt: new Date()
+        lastBidAt: now.toISOString(),
+        updatedAt: now.toISOString()
       });
       
       // Mark previous bids as outbid (simple approach, no transaction)
@@ -95,7 +96,7 @@ router.post('/', authMiddleware, async (req, res) => {
         .map(doc => 
           doc.ref.update({ 
             status: 'outbid', 
-            updatedAt: new Date() 
+            updatedAt: now.toISOString() 
           })
         );
       

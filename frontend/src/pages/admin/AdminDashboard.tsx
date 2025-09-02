@@ -426,7 +426,7 @@ const AdminDashboard = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <button
           onClick={() => navigate('/admin/users')}
           className="card hover:shadow-lg transition-all text-center py-4"
@@ -440,6 +440,13 @@ const AdminDashboard = () => {
         >
           <CubeIcon className="h-8 w-8 mx-auto mb-2 text-primary-600" />
           <span className="text-sm font-medium">Manage Products</span>
+        </button>
+        <button
+          onClick={() => navigate('/admin/add-products')}
+          className="card hover:shadow-lg transition-all text-center py-4"
+        >
+          <ShoppingBagIcon className="h-8 w-8 mx-auto mb-2 text-green-600" />
+          <span className="text-sm font-medium">Add Sample Products</span>
         </button>
         <button
           onClick={() => navigate('/admin/categories')}

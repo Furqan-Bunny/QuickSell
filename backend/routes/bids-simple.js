@@ -162,11 +162,16 @@ router.get('/product/:productId', async (req, res) => {
       
       bids = bidsSnapshot.docs.map(doc => {
         const data = doc.data();
+        const createdAt = convertTimestamp(data.createdAt);
         return {
           id: doc.id,
           ...data,
-          createdAt: convertTimestamp(data.createdAt),
-          updatedAt: convertTimestamp(data.updatedAt)
+          createdAt: createdAt,
+          updatedAt: convertTimestamp(data.updatedAt),
+          timestamp: createdAt || new Date().toISOString(), // Frontend expects timestamp field
+          bidder: {
+            username: data.userName || 'Unknown User'
+          }
         };
       });
       
@@ -206,11 +211,16 @@ router.get('/my-bids', authMiddleware, async (req, res) => {
     const bids = [];
     for (const doc of bidsSnapshot.docs) {
       const bidData = doc.data();
+      const createdAt = convertTimestamp(bidData.createdAt);
       const bid = { 
         id: doc.id, 
         ...bidData,
-        createdAt: convertTimestamp(bidData.createdAt),
-        updatedAt: convertTimestamp(bidData.updatedAt)
+        createdAt: createdAt,
+        updatedAt: convertTimestamp(bidData.updatedAt),
+        timestamp: createdAt || new Date().toISOString(), // Frontend expects timestamp field
+        bidder: {
+          username: bidData.userName || 'Unknown User'
+        }
       };
       
       // Get product details

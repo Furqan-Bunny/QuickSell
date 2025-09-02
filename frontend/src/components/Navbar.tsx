@@ -156,18 +156,6 @@ const Navbar = () => {
                       <Menu.Item>
                         {({ active }) => (
                           <Link
-                            to="/my-auctions"
-                            className={`${
-                              active ? 'bg-gray-100' : ''
-                            } block px-4 py-2 text-sm text-gray-700`}
-                          >
-                            My Auctions
-                          </Link>
-                        )}
-                      </Menu.Item>
-                      <Menu.Item>
-                        {({ active }) => (
-                          <Link
                             to="/my-bids"
                             className={`${
                               active ? 'bg-gray-100' : ''
@@ -294,9 +282,6 @@ const Navbar = () => {
                   </Link>
                   <Link to="/create-auction" className="block py-2 text-gray-700">
                     Create Auction
-                  </Link>
-                  <Link to="/my-auctions" className="block py-2 text-gray-700">
-                    My Auctions
                   </Link>
                   <Link to="/my-bids" className="block py-2 text-gray-700">
                     My Bids

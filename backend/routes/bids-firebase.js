@@ -84,7 +84,9 @@ router.post('/', authMiddleware, async (req, res) => {
     
     // Use transaction to ensure consistency
     const result = await db.runTransaction(async (transaction) => {
-      // Get current highest bid
+      // ALL READS MUST HAPPEN FIRST
+      
+      // 1. Get current highest bid
       const highestBidSnapshot = await transaction.get(
         db.collection('bids')
           .where('productId', '==', productId)
@@ -92,6 +94,16 @@ router.post('/', authMiddleware, async (req, res) => {
           .orderBy('amount', 'desc')
           .limit(1)
       );
+      
+      // 2. Check if user already bid (for unique bidders tracking)
+      const existingUserBid = await transaction.get(
+        db.collection('bids')
+          .where('productId', '==', productId)
+          .where('userId', '==', userId)
+          .limit(1)
+      );
+      
+      // NOW DO ALL WRITES
       
       // Create new bid
       const bidRef = db.collection('bids').doc();
@@ -126,14 +138,7 @@ router.post('/', authMiddleware, async (req, res) => {
         updatedAt: serverTimestamp()
       };
       
-      // Track unique bidders
-      const existingUserBid = await transaction.get(
-        db.collection('bids')
-          .where('productId', '==', productId)
-          .where('userId', '==', userId)
-          .limit(1)
-      );
-      
+      // Add unique bidders increment if needed
       if (existingUserBid.empty) {
         updates.uniqueBidders = increment(1);
       }

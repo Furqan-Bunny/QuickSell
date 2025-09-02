@@ -1,14 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const admin = require('firebase-admin');
+const { admin, db } = require('../config/firebase');
 const { authMiddleware } = require('../middleware/auth');
 const emailService = require('../services/emailService');
-
-const db = admin.firestore();
 
 // Place a bid
 router.post('/', authMiddleware, async (req, res) => {
   try {
+    // Check if Firebase is available
+    if (!db) {
+      return res.status(503).json({ error: 'Database service is temporarily unavailable' });
+    }
+    
     const { productId, amount } = req.body;
     const userId = req.user.uid;
     

@@ -8,7 +8,12 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     // Check if Firebase is available
     if (!db) {
-      return res.status(503).json({ error: 'Database service is temporarily unavailable' });
+      console.error('Firebase Firestore is not initialized!');
+      console.error('Please set FIREBASE_SERVICE_ACCOUNT environment variable in Railway');
+      return res.status(503).json({ 
+        error: 'Database service is not configured. Please contact administrator.',
+        hint: 'Firebase credentials are missing in Railway environment variables'
+      });
     }
     
     const { productId, amount } = req.body;

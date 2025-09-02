@@ -76,6 +76,9 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
   const productLocation = product.location || product.shipping?.location || 'South Africa'
   const productCategory = product.category || 'Uncategorized'
   const productCondition = product.condition || 'Used'
+  
+  // Default placeholder image as base64
+  const placeholderImage = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2U1ZTdlYiIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM5Y2EzYWYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5ObyBJbWFnZTwvdGV4dD4KPC9zdmc+'
 
   return (
     <Link to={`/products/${product.id}`} className="block h-full">
@@ -83,12 +86,12 @@ const ProductCard = ({ product, showTimer = false, initialWishlisted = false }: 
         {/* Image */}
         <div className="relative aspect-square mb-4 overflow-hidden rounded-lg bg-gray-100 flex-shrink-0">
           <img
-            src={productImages[0] || 'https://via.placeholder.com/400x400?text=No+Image'}
+            src={productImages[0] || placeholderImage}
             alt={productTitle}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
             loading="lazy"
             onError={(e) => {
-              e.currentTarget.src = 'https://via.placeholder.com/400x400?text=No+Image'
+              e.currentTarget.src = placeholderImage
             }}
           />
           

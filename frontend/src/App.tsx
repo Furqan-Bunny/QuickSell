@@ -30,6 +30,7 @@ import Checkout from './pages/Checkout'
 import Withdrawals from './pages/Withdrawals'
 import PaymentSuccess from './pages/PaymentSuccess'
 import PaymentCancel from './pages/PaymentCancel'
+import AddProducts from './pages/AddProducts'
 import AdminDashboard from './pages/admin/AdminDashboard'
 import AdminUsers from './pages/admin/AdminUsers'
 import AdminProducts from './pages/admin/AdminProducts'
@@ -78,6 +79,7 @@ function App() {
         <Route path="withdrawals" element={<AdminWithdrawals />} />
         <Route path="notifications" element={<AdminNotifications />} />
         <Route path="settings" element={<AdminSettings />} />
+        <Route path="add-products" element={<AddProducts />} />
       </Route>
 
       {/* Main App Routes with Layout */}

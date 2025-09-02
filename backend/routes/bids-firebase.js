@@ -6,11 +6,11 @@ const emailService = require('../services/emailService');
 
 // Helper functions for Firebase operations
 const serverTimestamp = () => {
-  return admin && admin.firestore ? serverTimestamp() : new Date();
+  return admin && admin.firestore ? admin.firestore.FieldValue.serverTimestamp() : new Date();
 };
 
 const increment = (value) => {
-  return admin && admin.firestore ? increment(value) : value;
+  return admin && admin.firestore ? admin.firestore.FieldValue.increment(value) : value;
 };
 
 // Place a bid
@@ -82,26 +82,47 @@ router.post('/', authMiddleware, async (req, res) => {
     // Note: Balance check removed - users can bid without balance
     // Payment will be required only when they win the auction
     
+    // Get data needed before transaction
+    let highestBidSnapshot;
+    let existingUserBidSnapshot;
+    
+    try {
+      // Try with orderBy first
+      highestBidSnapshot = await db.collection('bids')
+        .where('productId', '==', productId)
+        .where('status', '==', 'active')
+        .orderBy('amount', 'desc')
+        .limit(1)
+        .get();
+    } catch (indexError) {
+      console.log('Index not ready for bids query, using fallback');
+      // Fallback: get all active bids and sort in memory
+      const allActiveBids = await db.collection('bids')
+        .where('productId', '==', productId)
+        .where('status', '==', 'active')
+        .get();
+      
+      const sortedBids = allActiveBids.docs.sort((a, b) => 
+        (b.data().amount || 0) - (a.data().amount || 0)
+      );
+      
+      highestBidSnapshot = {
+        empty: sortedBids.length === 0,
+        docs: sortedBids.slice(0, 1)
+      };
+    }
+    
+    existingUserBidSnapshot = await db.collection('bids')
+      .where('productId', '==', productId)
+      .where('userId', '==', userId)
+      .limit(1)
+      .get();
+    
     // Use transaction to ensure consistency
     const result = await db.runTransaction(async (transaction) => {
-      // ALL READS MUST HAPPEN FIRST
-      
-      // 1. Get current highest bid
-      const highestBidSnapshot = await transaction.get(
-        db.collection('bids')
-          .where('productId', '==', productId)
-          .where('status', '==', 'active')
-          .orderBy('amount', 'desc')
-          .limit(1)
-      );
-      
-      // 2. Check if user already bid (for unique bidders tracking)
-      const existingUserBid = await transaction.get(
-        db.collection('bids')
-          .where('productId', '==', productId)
-          .where('userId', '==', userId)
-          .limit(1)
-      );
+      // Get the product document again within transaction for consistency
+      const productDocRef = db.collection('products').doc(productId);
+      const productDocInTx = await transaction.get(productDocRef);
       
       // NOW DO ALL WRITES
       
@@ -139,11 +160,11 @@ router.post('/', authMiddleware, async (req, res) => {
       };
       
       // Add unique bidders increment if needed
-      if (existingUserBid.empty) {
+      if (existingUserBidSnapshot.empty) {
         updates.uniqueBidders = increment(1);
       }
       
-      transaction.update(productDoc.ref, updates);
+      transaction.update(productDocRef, updates);
       
       return { bidId: bidRef.id, ...bidData, previousBidderData };
     });

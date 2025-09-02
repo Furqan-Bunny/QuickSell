@@ -14,7 +14,8 @@ import {
   CheckCircleIcon,
   ExclamationTriangleIcon,
   BanknotesIcon,
-  ArrowRightIcon
+  ArrowRightIcon,
+  UserPlusIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice } from '../utils/formatters'
 import toast from 'react-hot-toast'
@@ -57,6 +58,7 @@ const Profile = () => {
     pushWins: true,
     pushOutbid: true
   })
+  const [paymentMethods, setPaymentMethods] = useState<any[]>([])
 
   // Update form data when user data changes (e.g., after refresh)
   useEffect(() => {
@@ -231,6 +233,20 @@ const Profile = () => {
     }
   }
   
+  const handleAddPaymentMethod = () => {
+    toast('Payment methods are managed during checkout', {
+      icon: '💳',
+      duration: 3000
+    })
+  }
+
+  const handleRemovePaymentMethod = (id: string) => {
+    toast('Payment methods are managed during checkout', {
+      icon: '💳',
+      duration: 3000
+    })
+  }
+
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -320,7 +336,7 @@ const Profile = () => {
           <div className="w-full sm:w-auto text-left sm:text-right">
             <p className="text-sm text-gray-600">Account Balance</p>
             <p className="text-xl sm:text-2xl font-bold text-gray-900">{formatPrice(user?.balance || 0)}</p>
-            <button className="btn-primary mt-2 text-sm w-full sm:w-auto">Add Funds</button>
+            <p className="text-xs text-gray-500 mt-2">Earn R5 per referral!</p>
           </div>
         </div>
       </div>
@@ -707,9 +723,13 @@ const Profile = () => {
                       Withdraw Funds
                       <ArrowRightIcon className="h-4 w-4" />
                     </Link>
-                    <button className="flex items-center justify-center gap-2 bg-primary-500 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-primary-400 transition text-sm sm:text-base">
-                      Add Funds
-                    </button>
+                    <Link 
+                      to="/affiliates" 
+                      className="flex items-center justify-center gap-2 bg-green-500 text-white px-3 sm:px-4 py-2 rounded-lg font-semibold hover:bg-green-400 transition text-sm sm:text-base"
+                    >
+                      <UserPlusIcon className="h-5 w-5" />
+                      Invite & Earn
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -717,18 +737,37 @@ const Profile = () => {
               <div>
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Payment Methods</h3>
                 <div className="space-y-3">
-                  <div className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
-                    <div className="flex items-center">
-                      <CreditCardIcon className="h-8 w-8 text-gray-400 mr-3" />
-                      <div>
-                        <p className="font-medium">•••• •••• •••• 4242</p>
-                        <p className="text-sm text-gray-500">Expires 12/24</p>
+                  {paymentMethods.length > 0 ? (
+                    paymentMethods.map((method, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                        <div className="flex items-center">
+                          <CreditCardIcon className="h-8 w-8 text-gray-400 mr-3" />
+                          <div>
+                            <p className="font-medium">•••• •••• •••• {method.last4}</p>
+                            <p className="text-sm text-gray-500">Expires {method.expiry}</p>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleRemovePaymentMethod(method.id)}
+                          className="text-red-600 hover:text-red-700 text-sm"
+                        >
+                          Remove
+                        </button>
                       </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <CreditCardIcon className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                      <p>No payment methods added</p>
+                      <p className="text-xs mt-1">Payment methods are handled at checkout</p>
                     </div>
-                    <button className="text-red-600 hover:text-red-700 text-sm">Remove</button>
-                  </div>
-                  <button className="btn-outline w-full">
-                    Add Payment Method
+                  )}
+                  <button 
+                    onClick={handleAddPaymentMethod}
+                    className="btn-outline w-full"
+                    disabled
+                  >
+                    Payment Methods Managed at Checkout
                   </button>
                 </div>
               </div>
@@ -758,7 +797,7 @@ const Profile = () => {
                       </tr>
                       <tr>
                         <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">2024-01-10</td>
-                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">Account Top-up</td>
+                        <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">Referral Reward</td>
                         <td className="px-2 sm:px-4 py-2 text-xs sm:text-sm">{formatPrice(5000)}</td>
                         <td className="px-2 sm:px-4 py-2">
                           <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">

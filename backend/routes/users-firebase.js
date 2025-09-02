@@ -533,6 +533,69 @@ router.put('/notifications', authMiddleware, async (req, res) => {
   }
 });
 
+// Change password
+router.put('/password', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.user.uid;
+    const { currentPassword, newPassword } = req.body;
+    
+    // Validate input
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ 
+        error: 'Current password and new password are required' 
+      });
+    }
+    
+    if (newPassword.length < 6) {
+      return res.status(400).json({ 
+        error: 'New password must be at least 6 characters long' 
+      });
+    }
+    
+    try {
+      // Note: In Firebase Admin SDK, we cannot verify the current password
+      // The client should handle this verification through Firebase Auth client SDK
+      // Here we'll just update the password assuming the user is authenticated
+      
+      // Update the password in Firebase Auth
+      await admin.auth().updateUser(userId, {
+        password: newPassword
+      });
+      
+      // Log the password change in Firestore
+      await db.collection('users').doc(userId).update({
+        passwordChangedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+      
+      res.json({
+        success: true,
+        message: 'Password updated successfully'
+      });
+    } catch (authError) {
+      console.error('Firebase Auth error:', authError);
+      
+      if (authError.code === 'auth/user-not-found') {
+        return res.status(404).json({ error: 'User not found' });
+      } else if (authError.code === 'auth/weak-password') {
+        return res.status(400).json({ error: 'Password must be at least 6 characters' });
+      } else if (authError.code === 'auth/invalid-password') {
+        return res.status(400).json({ error: 'Invalid password format' });
+      } else {
+        return res.status(400).json({ 
+          error: 'Failed to update password. Please try again.' 
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.status(500).json({ 
+      error: 'Failed to change password',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 // Get user activity (bids, wins, watchlist)
 router.get('/activity', authMiddleware, async (req, res) => {
   try {

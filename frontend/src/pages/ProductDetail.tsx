@@ -630,7 +630,17 @@ const ProductDetail = () => {
                                 )}
                               </div>
                               <p className="text-sm text-gray-500">
-                                {format(new Date(bid.timestamp), 'MMM dd, yyyy • HH:mm')}
+                                {(() => {
+                                  try {
+                                    const date = bid.timestamp ? new Date(bid.timestamp) : new Date();
+                                    if (isNaN(date.getTime())) {
+                                      return 'Just now';
+                                    }
+                                    return format(date, 'MMM dd, yyyy • HH:mm');
+                                  } catch (error) {
+                                    return 'Just now';
+                                  }
+                                })()}
                               </p>
                             </div>
                           </div>
@@ -702,7 +712,17 @@ const ProductDetail = () => {
                                 </div>
                                 <span className="font-medium text-gray-900">{qa.user?.username}</span>
                                 <span className="text-sm text-gray-500">
-                                  {format(new Date(qa.date), 'MMM dd, yyyy')}
+                                  {(() => {
+                                    try {
+                                      const date = qa.date ? new Date(qa.date) : new Date();
+                                      if (isNaN(date.getTime())) {
+                                        return 'Recently';
+                                      }
+                                      return format(date, 'MMM dd, yyyy');
+                                    } catch (error) {
+                                      return 'Recently';
+                                    }
+                                  })()}
                                 </span>
                               </div>
                               <p className="text-gray-800 pl-10">{qa.question}</p>

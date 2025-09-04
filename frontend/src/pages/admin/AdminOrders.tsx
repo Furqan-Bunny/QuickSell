@@ -192,6 +192,13 @@ const AdminOrders = () => {
     return matchesSearch && matchesStatus
   })
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredOrders.length / ordersPerPage)
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ordersPerPage,
+    currentPage * ordersPerPage
+  )
+
   const handleSelectAll = () => {
     if (selectedOrders.length === filteredOrders.length) {
       setSelectedOrders([])
@@ -669,7 +676,7 @@ const AdminOrders = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredOrders.map((order) => {
+              {paginatedOrders.map((order) => {
                 const statusStyle = getStatusBadge(order.status)
                 const paymentStyle = getPaymentStatusBadge(order.paymentStatus)
                 const StatusIcon = statusStyle.icon
@@ -825,6 +832,16 @@ const AdminOrders = () => {
             </div>
           )}
         </div>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            className="mt-6"
+          />
+        )}
       </div>
 
       {/* Order Details Modal */}

@@ -15,6 +15,7 @@ import {
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice } from '../../utils/formatters'
+import Pagination from '../../components/Pagination'
 
 interface Transaction {
   id: string
@@ -76,6 +77,9 @@ const AdminPayments = () => {
     period: '30d'
   })
   const [searchTerm, setSearchTerm] = useState('')
+  const [transactionPage, setTransactionPage] = useState(1)
+  const [payoutPage, setPayoutPage] = useState(1)
+  const itemsPerPage = 15
   const [showPayoutModal, setShowPayoutModal] = useState(false)
   const [selectedSeller, setSelectedSeller] = useState<any>(null)
   const [payoutForm, setPayoutForm] = useState({
@@ -87,6 +91,9 @@ const AdminPayments = () => {
 
   useEffect(() => {
     loadPaymentData()
+    // Reset page when tab or filter changes
+    setTransactionPage(1)
+    setPayoutPage(1)
   }, [activeTab, filter])
 
   const loadPaymentData = async () => {
@@ -233,6 +240,19 @@ const AdminPayments = () => {
     }
     return true
   })
+
+  // Pagination calculations
+  const transactionTotalPages = Math.ceil(filteredTransactions.length / itemsPerPage)
+  const paginatedTransactions = filteredTransactions.slice(
+    (transactionPage - 1) * itemsPerPage,
+    transactionPage * itemsPerPage
+  )
+
+  const payoutTotalPages = Math.ceil(filteredPayouts.length / itemsPerPage)
+  const paginatedPayouts = filteredPayouts.slice(
+    (payoutPage - 1) * itemsPerPage,
+    payoutPage * itemsPerPage
+  )
 
   return (
     <div className="p-6">
@@ -437,7 +457,7 @@ const AdminPayments = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredTransactions.map((transaction) => (
+                      {paginatedTransactions.map((transaction) => (
                         <tr key={transaction.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {transaction.reference || transaction.id.slice(0, 8)}
@@ -480,6 +500,16 @@ const AdminPayments = () => {
                   )}
                 </div>
               )}
+              
+              {/* Pagination for Transactions */}
+              {activeTab === 'transactions' && transactionTotalPages > 1 && (
+                <Pagination
+                  currentPage={transactionPage}
+                  totalPages={transactionTotalPages}
+                  onPageChange={setTransactionPage}
+                  className="mt-4"
+                />
+              )}
 
               {activeTab === 'payouts' && (
                 <div className="overflow-x-auto">
@@ -510,7 +540,7 @@ const AdminPayments = () => {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredPayouts.map((payout) => (
+                      {paginatedPayouts.map((payout) => (
                         <tr key={payout.id}>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                             {payout.id.slice(0, 8)}
@@ -549,6 +579,16 @@ const AdminPayments = () => {
                     </div>
                   )}
                 </div>
+              )}
+              
+              {/* Pagination for Payouts */}
+              {activeTab === 'payouts' && payoutTotalPages > 1 && (
+                <Pagination
+                  currentPage={payoutPage}
+                  totalPages={payoutTotalPages}
+                  onPageChange={setPayoutPage}
+                  className="mt-4"
+                />
               )}
 
               {activeTab === 'analytics' && stats && (

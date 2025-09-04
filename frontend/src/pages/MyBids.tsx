@@ -11,15 +11,19 @@ import {
   ExclamationCircleIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice, getTimeRemaining } from '../utils/formatters'
+import Pagination from '../components/Pagination'
 
 const MyBids = () => {
   const [activeTab, setActiveTab] = useState('active')
   const [bids, setBids] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [sortBy, setSortBy] = useState('ending-soon')
+  const [currentPage, setCurrentPage] = useState(1)
+  const bidsPerPage = 10
 
   useEffect(() => {
     loadBidData()
+    setCurrentPage(1) // Reset page when tab changes
   }, [activeTab])
 
   const loadBidData = async () => {
@@ -93,8 +97,16 @@ const MyBids = () => {
   useEffect(() => {
     if (!loading) {
       loadBidData()
+      setCurrentPage(1) // Reset page when sort changes
     }
   }, [sortBy])
+
+  // Pagination
+  const totalPages = Math.ceil(bids.length / bidsPerPage)
+  const paginatedBids = bids.slice(
+    (currentPage - 1) * bidsPerPage,
+    currentPage * bidsPerPage
+  )
 
   return (
     <motion.div
@@ -200,7 +212,8 @@ const MyBids = () => {
         ) : activeTab === 'active' && (
           <div className="space-y-4">
             {bids.length > 0 ? (
-              bids.map((bid) => (
+              <>
+                {paginatedBids.map((bid) => (
                 <div key={bid.id} className="card hover:shadow-lg transition-shadow">
                   <div className="flex items-start space-x-4">
                     <img
@@ -261,7 +274,14 @@ const MyBids = () => {
                     </div>
                   </div>
                 </div>
-              ))
+                ))}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  className="mt-6"
+                />
+              </>
             ) : (
               <div className="text-center py-12">
                 <ClockIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -280,7 +300,8 @@ const MyBids = () => {
         {activeTab === 'won' && !loading && (
           <div className="space-y-4">
             {bids.length > 0 ? (
-              bids.map((order) => (
+              <>
+                {paginatedBids.map((order) => (
                 <div key={order.id} className="card hover:shadow-lg transition-shadow">
                   <div className="flex items-start space-x-4">
                     <img
@@ -332,7 +353,14 @@ const MyBids = () => {
                     </div>
                   </div>
                 </div>
-              ))
+                ))}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  className="mt-6"
+                />
+              </>
             ) : (
               <div className="text-center py-12">
                 <TrophyIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -348,7 +376,8 @@ const MyBids = () => {
         {activeTab === 'lost' && !loading && (
           <div className="space-y-4">
             {bids.length > 0 ? (
-              bids.map((bid) => (
+              <>
+                {paginatedBids.map((bid) => (
                 <div key={bid.id} className="card hover:shadow-lg transition-shadow">
                   <div className="flex items-start space-x-4">
                     <img
@@ -384,7 +413,14 @@ const MyBids = () => {
                     </div>
                   </div>
                 </div>
-              ))
+                ))}
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  className="mt-6"
+                />
+              </>
             ) : (
               <div className="text-center py-12">
                 <XCircleIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />

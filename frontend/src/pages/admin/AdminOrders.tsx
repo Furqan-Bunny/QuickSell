@@ -24,6 +24,7 @@ import {
 } from '@heroicons/react/24/outline'
 import { formatPrice } from '../../utils/formatters'
 import toast from 'react-hot-toast'
+import Pagination from '../../components/Pagination'
 
 // Enhanced TypeScript interfaces
 interface Order {
@@ -91,6 +92,8 @@ const AdminOrders = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [selectedOrders, setSelectedOrders] = useState<string[]>([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const ordersPerPage = 20
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [showTrackingModal, setShowTrackingModal] = useState(false)

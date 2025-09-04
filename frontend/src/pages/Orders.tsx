@@ -11,7 +11,9 @@ import {
   CreditCardIcon,
   ExclamationTriangleIcon,
   EyeIcon,
-  ChatBubbleLeftEllipsisIcon
+  ChatBubbleLeftEllipsisIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice } from '../utils/formatters'
 import { useAuthStore } from '../store/authStore'
@@ -52,9 +54,12 @@ const Orders = () => {
   const [orders, setOrders] = useState<Order[]>([])
   const [sortBy, setSortBy] = useState('recent')
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const ordersPerPage = 10
 
   useEffect(() => {
     loadOrders()
+    setCurrentPage(1) // Reset page when filters change
   }, [activeTab, sortBy])
 
   const loadOrders = async () => {
@@ -208,6 +213,18 @@ const Orders = () => {
     }
   ]
 
+  // Pagination
+  const totalPages = Math.ceil(orders.length / ordersPerPage)
+  const paginatedOrders = orders.slice(
+    (currentPage - 1) * ordersPerPage,
+    currentPage * ordersPerPage
+  )
+
+  const paginate = (pageNumber: number) => {
+    setCurrentPage(pageNumber)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -288,7 +305,8 @@ const Orders = () => {
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
           </div>
         ) : orders.length > 0 ? (
-          orders.map((order) => (
+          <>
+            {paginatedOrders.map((order) => (
             <div key={order.id} className="card hover:shadow-lg transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div>
@@ -429,7 +447,56 @@ const Orders = () => {
                 </div>
               </div>
             </div>
-          ))
+            ))}
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="mt-8 flex justify-center items-center space-x-2">
+                <button
+                  onClick={() => paginate(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeftIcon className="h-5 w-5" />
+                </button>
+                
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let pageNum
+                  if (totalPages <= 5) {
+                    pageNum = i + 1
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i
+                  } else {
+                    pageNum = currentPage - 2 + i
+                  }
+                  
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => paginate(pageNum)}
+                      className={`px-4 py-2 rounded-lg ${
+                        currentPage === pageNum
+                          ? 'bg-primary-600 text-white'
+                          : 'border border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+                
+                <button
+                  onClick={() => paginate(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-12">
             <ShoppingBagIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />

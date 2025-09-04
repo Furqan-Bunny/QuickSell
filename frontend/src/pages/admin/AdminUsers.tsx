@@ -13,6 +13,7 @@ import {
   UserCircleIcon
 } from '@heroicons/react/24/outline'
 import toast from 'react-hot-toast'
+import Pagination from '../../components/Pagination'
 
 interface User {
   id: string
@@ -40,6 +41,8 @@ const AdminUsers = () => {
   const [selectedRole, setSelectedRole] = useState('all')
   const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const usersPerPage = 20
 
   useEffect(() => {
     if (user?.role !== 'admin') return
@@ -48,6 +51,7 @@ const AdminUsers = () => {
 
   useEffect(() => {
     filterUsers()
+    setCurrentPage(1) // Reset page when filters change
   }, [searchTerm, selectedRole, users])
 
   const loadUsers = async () => {
@@ -120,6 +124,13 @@ const AdminUsers = () => {
     const d = date._seconds ? new Date(date._seconds * 1000) : new Date(date)
     return d.toLocaleDateString()
   }
+
+  // Pagination
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage)
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * usersPerPage,
+    currentPage * usersPerPage
+  )
 
   const getRoleBadge = (role: string) => {
     const badges: Record<string, string> = {
@@ -266,7 +277,7 @@ const AdminUsers = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
+              {paginatedUsers.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -337,6 +348,16 @@ const AdminUsers = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            className="mt-6"
+          />
+        )}
 
         {filteredUsers.length === 0 && (
           <div className="text-center py-12">

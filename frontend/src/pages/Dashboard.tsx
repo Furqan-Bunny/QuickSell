@@ -13,7 +13,9 @@ import {
   ArrowRightIcon,
   BellIcon,
   ExclamationCircleIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice, getTimeRemaining } from '../utils/formatters'
 import ProductCard from '../components/ProductCard'
@@ -23,6 +25,10 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [activeBids, setActiveBids] = useState<any[]>([])
+  const [bidsPage, setBidsPage] = useState(1)
+  const [activityPage, setActivityPage] = useState(1)
+  const bidsPerPage = 3
+  const activitiesPerPage = 5
 
   useEffect(() => {
     loadDashboardData()
@@ -72,6 +78,20 @@ const Dashboard = () => {
 
   const recentActivity = dashboardData?.recentActivity || []
   const recommendations = dashboardData?.recommendations || []
+
+  // Pagination for active bids
+  const totalBidsPages = Math.ceil(activeBids.length / bidsPerPage)
+  const paginatedBids = activeBids.slice(
+    (bidsPage - 1) * bidsPerPage,
+    bidsPage * bidsPerPage
+  )
+
+  // Pagination for recent activity
+  const totalActivityPages = Math.ceil(recentActivity.length / activitiesPerPage)
+  const paginatedActivity = recentActivity.slice(
+    (activityPage - 1) * activitiesPerPage,
+    activityPage * activitiesPerPage
+  )
 
   const statCards = [
     {
@@ -180,7 +200,7 @@ const Dashboard = () => {
             </div>
             {activeBids.length > 0 ? (
               <div className="space-y-4">
-                {activeBids.slice(0, 3).map((bid) => (
+                {paginatedBids.map((bid) => (
                   <div key={bid.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-4">
                       <img
@@ -227,6 +247,29 @@ const Dashboard = () => {
                 </Link>
               </div>
             )}
+            
+            {/* Pagination for Active Bids */}
+            {totalBidsPages > 1 && (
+              <div className="mt-4 flex justify-center items-center space-x-2">
+                <button
+                  onClick={() => setBidsPage(bidsPage - 1)}
+                  disabled={bidsPage === 1}
+                  className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {bidsPage} of {totalBidsPages}
+                </span>
+                <button
+                  onClick={() => setBidsPage(bidsPage + 1)}
+                  disabled={bidsPage === totalBidsPages}
+                  className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Recent Activity */}
@@ -234,7 +277,7 @@ const Dashboard = () => {
             <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
             {recentActivity.length > 0 ? (
               <div className="space-y-3">
-                {recentActivity.map((activity: any, index: number) => (
+                {paginatedActivity.map((activity: any, index: number) => (
                   <div key={index} className="flex items-start space-x-3 py-2 border-b last:border-0">
                     <div className="flex-shrink-0">
                       {activity.type === 'bid' && <ClockIcon className="h-5 w-5 text-blue-500" />}
@@ -260,6 +303,29 @@ const Dashboard = () => {
               </div>
             ) : (
               <p className="text-gray-500 text-center py-4">No recent activity</p>
+            )}
+            
+            {/* Pagination for Recent Activity */}
+            {totalActivityPages > 1 && (
+              <div className="mt-4 flex justify-center items-center space-x-2">
+                <button
+                  onClick={() => setActivityPage(activityPage - 1)}
+                  disabled={activityPage === 1}
+                  className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeftIcon className="h-4 w-4" />
+                </button>
+                <span className="text-sm text-gray-600">
+                  Page {activityPage} of {totalActivityPages}
+                </span>
+                <button
+                  onClick={() => setActivityPage(activityPage + 1)}
+                  disabled={activityPage === totalActivityPages}
+                  className="p-1 rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ChevronRightIcon className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </div>
         </div>

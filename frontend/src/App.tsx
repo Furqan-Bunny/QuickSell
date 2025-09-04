@@ -41,6 +41,7 @@ import AdminPayments from './pages/admin/AdminPayments'
 import AdminNotifications from './pages/admin/AdminNotifications'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminWithdrawals from './pages/admin/AdminWithdrawals'
+import AcceptInvite from './pages/AcceptInvite'
 
 function App() {
   const { initAuth, isLoading, isAuthenticated } = useAuthStore()
@@ -87,6 +88,7 @@ function App() {
         <Route index element={<Home />} />
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
+        <Route path="accept-invite" element={<AcceptInvite />} />
         <Route path="products" element={<Products />} />
         <Route path="products/:id" element={<ProductDetail />} />
         <Route path="payment/success" element={<PaymentSuccess />} />

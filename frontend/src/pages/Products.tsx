@@ -182,10 +182,13 @@ const Products = () => {
 
     // Search filter
     if (searchQuery) {
-      filtered = filtered.filter(product =>
-        product.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      filtered = filtered.filter(product => {
+        const title = product.title || ''
+        const description = product.description || ''
+        const searchLower = searchQuery.toLowerCase()
+        return title.toLowerCase().includes(searchLower) ||
+               description.toLowerCase().includes(searchLower)
+      })
     }
 
     // Category filter
@@ -217,19 +220,27 @@ const Products = () => {
     // Sorting
     switch (sortBy) {
       case 'newest':
-        filtered.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
+        filtered.sort((a, b) => {
+          const dateA = a.startDate ? new Date(a.startDate).getTime() : 0
+          const dateB = b.startDate ? new Date(b.startDate).getTime() : 0
+          return dateB - dateA
+        })
         break
       case 'ending-soon':
-        filtered.sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime())
+        filtered.sort((a, b) => {
+          const dateA = a.endDate ? new Date(a.endDate).getTime() : 0
+          const dateB = b.endDate ? new Date(b.endDate).getTime() : 0
+          return dateA - dateB
+        })
         break
       case 'price-low':
-        filtered.sort((a, b) => a.currentPrice - b.currentPrice)
+        filtered.sort((a, b) => (a.currentPrice || 0) - (b.currentPrice || 0))
         break
       case 'price-high':
-        filtered.sort((a, b) => b.currentPrice - a.currentPrice)
+        filtered.sort((a, b) => (b.currentPrice || 0) - (a.currentPrice || 0))
         break
       case 'most-bids':
-        filtered.sort((a, b) => b.bids - a.bids)
+        filtered.sort((a, b) => (b.bids || 0) - (a.bids || 0))
         break
     }
 
@@ -237,10 +248,6 @@ const Products = () => {
     setCurrentPage(1) // Reset to first page when filters change
   }
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    setSearchParams(searchQuery ? { search: searchQuery } : {})
-  }
 
   const clearFilters = () => {
     setSearchQuery('')
@@ -281,24 +288,21 @@ const Products = () => {
       <div className="card">
         <div className="flex flex-col md:flex-row gap-4">
           {/* Search */}
-          <form onSubmit={handleSearch} className="flex-1">
+          <div className="flex-1">
             <div className="relative">
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setSearchParams(e.target.value ? { search: e.target.value } : {})
+                }}
                 placeholder="Search auctions..."
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
               />
               <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <button
-                type="submit"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 btn-primary py-1 px-3 text-sm"
-              >
-                Search
-              </button>
             </div>
-          </form>
+          </div>
 
           {/* Sort */}
           <select

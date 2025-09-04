@@ -32,6 +32,7 @@ const Withdrawals = () => {
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
   const [loading, setLoading] = useState(true)
   const [showRequestModal, setShowRequestModal] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     amount: '',
     bankDetails: {
@@ -63,6 +64,8 @@ const Withdrawals = () => {
   const handleSubmitRequest = async (e: React.FormEvent) => {
     e.preventDefault()
     
+    if (submitting) return // Prevent double submission
+    
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
       toast.error('Please enter a valid amount')
       return
@@ -78,19 +81,22 @@ const Withdrawals = () => {
       return
     }
 
+    setSubmitting(true)
+    console.log('Starting withdrawal request submission...')
+    
     try {
       const response = await axios.post('/api/withdrawals/request', {
         amount: parseFloat(formData.amount),
         bankDetails: formData.bankDetails,
         notes: formData.notes
       })
+      
+      console.log('Withdrawal request successful:', response.data)
 
-      toast.success('Withdrawal request submitted successfully')
-      
-      // Create notification
-      notificationService.createWithdrawalNotification('requested', parseFloat(formData.amount))
-      
+      // Close modal immediately after successful request
       setShowRequestModal(false)
+      
+      // Reset form data
       setFormData({
         amount: '',
         bankDetails: {
@@ -102,9 +108,36 @@ const Withdrawals = () => {
         },
         notes: ''
       })
+      
+      // Reset submitting state
+      setSubmitting(false)
+      
+      // Show success message
+      toast.success('Withdrawal request submitted successfully')
+      
+      // Create notification
+      try {
+        notificationService.createWithdrawalNotification('requested', parseFloat(formData.amount))
+      } catch (notifError) {
+        console.error('Failed to create notification:', notifError)
+      }
+      
+      // Refresh withdrawals list (don't await - do it in background)
       fetchWithdrawals()
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to submit withdrawal request')
+      const errorMessage = error.response?.data?.error || 'Failed to submit withdrawal request'
+      const pendingId = error.response?.data?.pendingWithdrawalId
+      
+      toast.error(errorMessage)
+      
+      // Reset submitting state on error
+      setSubmitting(false)
+      
+      // If there's a pending withdrawal, refresh the list to show it
+      if (pendingId) {
+        console.log('Found pending withdrawal:', pendingId)
+        fetchWithdrawals()
+      }
     }
   }
 
@@ -250,59 +283,88 @@ const Withdrawals = () => {
 
       {/* Request Modal */}
       {showRequestModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-lg max-w-md w-full p-6"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden"
           >
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Request Withdrawal</h3>
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className="bg-white/20 rounded-full p-2">
+                    <BanknotesIcon className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-white">Request Withdrawal</h3>
+                    <p className="text-primary-100 text-sm">Transfer funds to your bank account</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowRequestModal(false)}
+                  className="text-white/80 hover:text-white transition-colors"
+                >
+                  <XCircleIcon className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
             
-            <form onSubmit={handleSubmitRequest}>
+            <form onSubmit={handleSubmitRequest} className="p-6">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Amount (R)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                    required
-                  />
-                  <p className="mt-1 text-sm text-gray-500">Available: R{user?.balance || 0}</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount (R)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">R</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      className="pl-10 block w-full h-11 rounded-lg border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 transition-colors"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  <p className="mt-2 text-sm text-primary-600 font-medium">Available balance: R{user?.balance || 0}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.bankName}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        bankDetails: { ...formData.bankDetails, bankName: e.target.value }
+                      })}
+                      className="block w-full h-11 px-3 rounded-lg border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 transition-colors"
+                      placeholder="e.g. Standard Bank"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Number</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.accountNumber}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        bankDetails: { ...formData.bankDetails, accountNumber: e.target.value }
+                      })}
+                      className="block w-full h-11 px-3 rounded-lg border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 transition-colors"
+                      placeholder="1234567890"
+                      required
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Bank Name</label>
-                  <input
-                    type="text"
-                    value={formData.bankDetails.bankName}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      bankDetails: { ...formData.bankDetails, bankName: e.target.value }
-                    })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Account Number</label>
-                  <input
-                    type="text"
-                    value={formData.bankDetails.accountNumber}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      bankDetails: { ...formData.bankDetails, accountNumber: e.target.value }
-                    })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Account Holder Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Account Holder Name</label>
                   <input
                     type="text"
                     value={formData.bankDetails.accountHolder}
@@ -311,63 +373,68 @@ const Withdrawals = () => {
                       bankDetails: { ...formData.bankDetails, accountHolder: e.target.value }
                     })}
                     placeholder={`${user?.firstName} ${user?.lastName}`}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="block w-full h-11 px-3 rounded-lg border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 transition-colors"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Branch Code</label>
-                  <input
-                    type="text"
-                    value={formData.bankDetails.branchCode}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      bankDetails: { ...formData.bankDetails, branchCode: e.target.value }
-                    })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch Code</label>
+                    <input
+                      type="text"
+                      value={formData.bankDetails.branchCode}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        bankDetails: { ...formData.bankDetails, branchCode: e.target.value }
+                      })}
+                      className="block w-full h-11 px-3 rounded-lg border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 transition-colors"
+                      placeholder="Optional"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Account Type</label>
+                    <select
+                      value={formData.bankDetails.accountType}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        bankDetails: { ...formData.bankDetails, accountType: e.target.value }
+                      })}
+                      className="block w-full h-11 px-3 rounded-lg border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 transition-colors"
+                    >
+                      <option value="Savings">Savings</option>
+                      <option value="Current">Current</option>
+                      <option value="Cheque">Cheque</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Account Type</label>
-                  <select
-                    value={formData.bankDetails.accountType}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      bankDetails: { ...formData.bankDetails, accountType: e.target.value }
-                    })}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
-                  >
-                    <option value="Savings">Savings</option>
-                    <option value="Current">Current</option>
-                    <option value="Cheque">Cheque</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
                   <textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     rows={3}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    className="block w-full p-3 rounded-lg border border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 transition-colors resize-none"
+                    placeholder="Any additional information..."
                   />
                 </div>
               </div>
 
-              <div className="mt-6 flex gap-3">
+              <div className="mt-6 flex gap-3 pt-4 border-t border-gray-200">
                 <button
                   type="button"
                   onClick={() => setShowRequestModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  className="flex-1 px-6 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
+                  disabled={submitting}
+                  className="flex-1 px-6 py-3 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-white bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 transition-all transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
-                  Submit Request
+                  {submitting ? 'Submitting...' : 'Submit Request'}
                 </button>
               </div>
             </form>

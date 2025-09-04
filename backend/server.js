@@ -124,6 +124,7 @@ app.use('/api/payments/flutterwave', flutterwaveRoutes);
 app.use('/api/payments/verification', paymentVerificationRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin-ext', require('./routes/admin-extended'));
 // app.use('/api/notifications', notificationRoutes);
 
 // Initialize Socket.io service

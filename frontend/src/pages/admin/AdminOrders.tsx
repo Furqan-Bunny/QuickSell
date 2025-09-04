@@ -17,31 +17,102 @@ import {
   ShoppingCartIcon,
   ExclamationTriangleIcon,
   CalendarIcon,
-  UserIcon
+  UserIcon,
+  DocumentTextIcon,
+  ChevronUpDownIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline'
 import { formatPrice } from '../../utils/formatters'
 import toast from 'react-hot-toast'
 
+// Enhanced TypeScript interfaces
+interface Order {
+  id: string
+  orderId: string
+  productId: string
+  productTitle: string
+  productImage?: string
+  buyerId: string
+  buyerName?: string
+  buyerEmail?: string
+  sellerId?: string
+  sellerName?: string
+  type: 'buy_now' | 'auction_win'
+  totalAmount: number
+  quantity: number
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+  paymentStatus: 'pending' | 'completed' | 'failed' | 'refunded'
+  paymentMethod?: string
+  shippingAddress?: {
+    fullName?: string
+    addressLine1?: string
+    addressLine2?: string
+    city?: string
+    state?: string
+    zipCode?: string
+    country?: string
+    phoneNumber?: string
+  }
+  trackingNumber?: string
+  shippingCarrier?: string
+  adminNotes?: string
+  customerNotes?: string
+  createdAt: string
+  updatedAt?: string
+  estimatedDelivery?: string
+  deliveredAt?: string
+}
+
+interface OrderAnalytics {
+  totalOrders: number
+  totalRevenue: number
+  pendingOrders: number
+  processingOrders: number
+  shippedOrders: number
+  deliveredOrders: number
+  cancelledOrders: number
+  averageOrderValue: number
+  revenueGrowth: number
+  orderGrowth: number
+}
+
+interface DateRange {
+  startDate: string
+  endDate: string
+}
+
 const AdminOrders = () => {
   const navigate = useNavigate()
   const { user } = useAuthStore()
-  const [orders, setOrders] = useState<any[]>([])
+  const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  const [updateLoading, setUpdateLoading] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [selectedOrders, setSelectedOrders] = useState<string[]>([])
   const [showOrderModal, setShowOrderModal] = useState(false)
-  const [selectedOrder, setSelectedOrder] = useState<any>(null)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [showTrackingModal, setShowTrackingModal] = useState(false)
   const [trackingNumber, setTrackingNumber] = useState('')
+  const [shippingCarrier, setShippingCarrier] = useState('Standard Shipping')
   const [adminNotes, setAdminNotes] = useState('')
-  const [statistics, setStatistics] = useState({
+  const [dateRange, setDateRange] = useState<DateRange>({
+    startDate: '',
+    endDate: ''
+  })
+  const [showDateFilter, setShowDateFilter] = useState(false)
+  const [analytics, setAnalytics] = useState<OrderAnalytics>({
     totalOrders: 0,
     totalRevenue: 0,
     pendingOrders: 0,
     processingOrders: 0,
     shippedOrders: 0,
-    deliveredOrders: 0
+    deliveredOrders: 0,
+    cancelledOrders: 0,
+    averageOrderValue: 0,
+    revenueGrowth: 0,
+    orderGrowth: 0
   })
 
   useEffect(() => {
@@ -51,22 +122,27 @@ const AdminOrders = () => {
       return
     }
     fetchOrders()
+    fetchAnalytics()
   }, [user])
+
+  useEffect(() => {
+    if (dateRange.startDate && dateRange.endDate) {
+      fetchOrders()
+      fetchAnalytics(dateRange.startDate, dateRange.endDate)
+    }
+  }, [dateRange])
 
   const fetchOrders = async () => {
     try {
       setLoading(true)
-      const response = await axios.get('/api/orders/admin/all')
+      const params = new URLSearchParams()
+      if (dateRange.startDate) params.append('startDate', dateRange.startDate)
+      if (dateRange.endDate) params.append('endDate', dateRange.endDate)
+      if (filterStatus !== 'all') params.append('status', filterStatus)
+      
+      const response = await axios.get(`/api/orders/admin/all?${params.toString()}`)
       if (response.data.success) {
         setOrders(response.data.data || [])
-        setStatistics(response.data.statistics || {
-          totalOrders: 0,
-          totalRevenue: 0,
-          pendingOrders: 0,
-          processingOrders: 0,
-          shippedOrders: 0,
-          deliveredOrders: 0
-        })
       }
     } catch (error: any) {
       console.error('Error fetching orders:', error)
@@ -81,109 +157,25 @@ const AdminOrders = () => {
     }
   }
 
-  // Mock orders data (removed - using real data now)
-  const mockOrders = [
-    {
-      id: 'ORD-001',
-      productTitle: 'Vintage Rolex Submariner',
-      productImage: 'https://images.unsplash.com/photo-1523170335258-f5c6c6bd6edb?w=300&h=300&fit=crop',
-      buyer: 'john_buyer',
-      buyerName: 'John Smith',
-      buyerEmail: 'john@example.com',
-      seller: 'watchcollector123',
-      sellerName: 'Mike Wilson',
-      sellerEmail: 'mike@example.com',
-      amount: 85000,
-      commission: 8500,
-      netAmount: 76500,
-      status: 'processing',
-      paymentStatus: 'completed',
-      orderDate: '2024-12-20',
-      expectedDelivery: '2024-12-27',
-      trackingNumber: 'TRK123456789',
-      shippingAddress: '123 Main St, Cape Town, South Africa'
-    },
-    {
-      id: 'ORD-002',
-      productTitle: 'iPhone 15 Pro Max - Unopened',
-      productImage: 'https://images.unsplash.com/photo-1592286634469-9b7429b91b65?w=300&h=300&fit=crop',
-      buyer: 'sarah_tech',
-      buyerName: 'Sarah Johnson',
-      buyerEmail: 'sarah@example.com',
-      seller: 'techdealer',
-      sellerName: 'Alex Chen',
-      sellerEmail: 'alex@example.com',
-      amount: 12000,
-      commission: 1200,
-      netAmount: 10800,
-      status: 'shipped',
-      paymentStatus: 'completed',
-      orderDate: '2024-12-19',
-      expectedDelivery: '2024-12-24',
-      trackingNumber: 'TRK987654321',
-      shippingAddress: '456 Oak Ave, Johannesburg, South Africa'
-    },
-    {
-      id: 'ORD-003',
-      productTitle: 'Rare Pokemon Card Collection',
-      productImage: 'https://images.unsplash.com/photo-1606107557195-0e29a4b5b4aa?w=300&h=300&fit=crop',
-      buyer: 'pokemon_fan',
-      buyerName: 'Emma Davis',
-      buyerEmail: 'emma@example.com',
-      seller: 'pokemonmaster',
-      sellerName: 'Chris Brown',
-      sellerEmail: 'chris@example.com',
-      amount: 25000,
-      commission: 2500,
-      netAmount: 22500,
-      status: 'delivered',
-      paymentStatus: 'completed',
-      orderDate: '2024-12-15',
-      expectedDelivery: '2024-12-22',
-      trackingNumber: 'TRK456789123',
-      shippingAddress: '789 Pine St, Durban, South Africa'
-    },
-    {
-      id: 'ORD-004',
-      productTitle: 'Gaming PC - RTX 4090 Setup',
-      productImage: 'https://images.unsplash.com/photo-1587831990711-23ca6441447b?w=300&h=300&fit=crop',
-      buyer: 'gamer_pro',
-      buyerName: 'Ryan Wilson',
-      buyerEmail: 'ryan@example.com',
-      seller: 'pcbuilder',
-      sellerName: 'Lisa Park',
-      sellerEmail: 'lisa@example.com',
-      amount: 35000,
-      commission: 3500,
-      netAmount: 31500,
-      status: 'pending',
-      paymentStatus: 'pending',
-      orderDate: '2024-12-21',
-      expectedDelivery: '2024-12-28',
-      trackingNumber: null,
-      shippingAddress: '321 Elm St, Port Elizabeth, South Africa'
-    },
-    {
-      id: 'ORD-005',
-      productTitle: 'Antique Victorian Jewelry Box',
-      productImage: 'https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=300&h=300&fit=crop',
-      buyer: 'antique_lover',
-      buyerName: 'Maria Garcia',
-      buyerEmail: 'maria@example.com',
-      seller: 'antiquedealer',
-      sellerName: 'David Kim',
-      sellerEmail: 'david@example.com',
-      amount: 3500,
-      commission: 350,
-      netAmount: 3150,
-      status: 'cancelled',
-      paymentStatus: 'refunded',
-      orderDate: '2024-12-18',
-      expectedDelivery: null,
-      trackingNumber: null,
-      shippingAddress: '654 Maple Ave, Pretoria, South Africa'
+  // Fetch analytics data from the new endpoint
+  const fetchAnalytics = async (startDate?: string, endDate?: string) => {
+    try {
+      setAnalyticsLoading(true)
+      const params = new URLSearchParams()
+      if (startDate) params.append('startDate', startDate)
+      if (endDate) params.append('endDate', endDate)
+      
+      const response = await axios.get(`/api/admin-ext/orders/analytics?${params.toString()}`)
+      if (response.data.success) {
+        setAnalytics(response.data.data)
+      }
+    } catch (error: any) {
+      console.error('Error fetching analytics:', error)
+      toast.error('Failed to fetch order analytics')
+    } finally {
+      setAnalyticsLoading(false)
     }
-  ]
+  }
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
@@ -220,79 +212,167 @@ const AdminOrders = () => {
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     try {
-      const response = await axios.put(`/api/orders/admin/${orderId}`, {
+      setUpdateLoading(orderId)
+      const response = await axios.put(`/api/admin-ext/orders/${orderId}/status`, {
         status: newStatus
       })
       if (response.data.success) {
         toast.success(`Order status updated to ${newStatus}`)
         // Update local state
         setOrders(orders.map(o => 
-          o.orderId === orderId ? { ...o, status: newStatus } : o
+          o.orderId === orderId ? { ...o, status: newStatus as Order['status'] } : o
         ))
-        // Refresh data to get updated statistics
-        fetchOrders()
+        // Refresh analytics
+        fetchAnalytics(dateRange.startDate, dateRange.endDate)
       }
     } catch (error: any) {
       console.error('Error updating order status:', error)
       toast.error(error.response?.data?.error || 'Failed to update order status')
+    } finally {
+      setUpdateLoading(null)
     }
   }
 
   const handleAddTracking = async (orderId: string) => {
     try {
-      const response = await axios.put(`/api/orders/admin/${orderId}`, {
+      setUpdateLoading(orderId)
+      const response = await axios.put(`/api/admin-ext/orders/${orderId}/tracking`, {
         trackingNumber: trackingNumber,
-        shippingCarrier: 'Standard Shipping'
+        shippingCarrier: shippingCarrier
       })
       if (response.data.success) {
         toast.success('Tracking information added')
         setOrders(orders.map(o => 
-          o.orderId === orderId ? { ...o, trackingNumber } : o
+          o.orderId === orderId ? { ...o, trackingNumber, shippingCarrier } : o
         ))
         setShowTrackingModal(false)
         setTrackingNumber('')
+        setShippingCarrier('Standard Shipping')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error adding tracking:', error)
-      toast.error('Failed to add tracking information')
+      toast.error(error.response?.data?.error || 'Failed to add tracking information')
+    } finally {
+      setUpdateLoading(null)
     }
   }
 
   const handleAddNotes = async (orderId: string) => {
     try {
-      const response = await axios.put(`/api/orders/admin/${orderId}`, {
+      setUpdateLoading(orderId)
+      const response = await axios.put(`/api/admin-ext/orders/${orderId}/notes`, {
         adminNotes: adminNotes
       })
       if (response.data.success) {
-        toast.success('Admin notes added')
+        toast.success('Admin notes updated')
         setOrders(orders.map(o => 
           o.orderId === orderId ? { ...o, adminNotes } : o
         ))
         setAdminNotes('')
       }
-    } catch (error) {
-      console.error('Error adding notes:', error)
-      toast.error('Failed to add notes')
+    } catch (error: any) {
+      console.error('Error updating notes:', error)
+      toast.error(error.response?.data?.error || 'Failed to update notes')
+    } finally {
+      setUpdateLoading(null)
+    }
+  }
+
+  const handleBulkStatusUpdate = async (newStatus: Order['status']) => {
+    if (selectedOrders.length === 0) {
+      toast.error('Please select orders first')
+      return
+    }
+
+    try {
+      setUpdateLoading('bulk')
+      const response = await axios.put('/api/admin-ext/orders/bulk/status', {
+        orderIds: selectedOrders,
+        status: newStatus
+      })
+      
+      if (response.data.success) {
+        toast.success(`${selectedOrders.length} orders updated to ${newStatus}`)
+        // Update local state
+        setOrders(orders.map(o => 
+          selectedOrders.includes(o.orderId) ? { ...o, status: newStatus } : o
+        ))
+        setSelectedOrders([])
+        fetchAnalytics(dateRange.startDate, dateRange.endDate)
+      }
+    } catch (error: any) {
+      console.error('Error bulk updating orders:', error)
+      toast.error(error.response?.data?.error || 'Failed to update orders')
+    } finally {
+      setUpdateLoading(null)
+    }
+  }
+
+  const exportToCSV = async (exportType: 'selected' | 'filtered' | 'all') => {
+    try {
+      const ordersToExport = exportType === 'selected' ? selectedOrders : 
+                           exportType === 'filtered' ? filteredOrders.map(o => o.orderId) :
+                           orders.map(o => o.orderId)
+      
+      if (ordersToExport.length === 0) {
+        toast.error('No orders to export')
+        return
+      }
+
+      const response = await axios.post('/api/admin-ext/orders/export', {
+        orderIds: ordersToExport,
+        format: 'csv'
+      }, {
+        responseType: 'blob'
+      })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `orders-export-${new Date().toISOString().split('T')[0]}.csv`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      
+      toast.success(`${ordersToExport.length} orders exported successfully`)
+      if (exportType === 'selected') setSelectedOrders([])
+    } catch (error: any) {
+      console.error('Error exporting orders:', error)
+      toast.error(error.response?.data?.error || 'Failed to export orders')
     }
   }
 
   const handleBulkAction = (action: string) => {
-    if (selectedOrders.length === 0) {
+    if (selectedOrders.length === 0 && action !== 'export-all' && action !== 'export-filtered') {
       toast.error('Please select orders first')
       return
     }
     
     switch (action) {
-      case 'export':
-        toast.success(`${selectedOrders.length} orders exported`)
+      case 'export-selected':
+        exportToCSV('selected')
+        break
+      case 'export-filtered':
+        exportToCSV('filtered')
+        break
+      case 'export-all':
+        exportToCSV('all')
+        break
+      case 'mark-processing':
+        handleBulkStatusUpdate('processing')
         break
       case 'mark-shipped':
-        toast.success(`${selectedOrders.length} orders marked as shipped`)
-        setSelectedOrders([])
+        handleBulkStatusUpdate('shipped')
         break
       case 'mark-delivered':
-        toast.success(`${selectedOrders.length} orders marked as delivered`)
-        setSelectedOrders([])
+        handleBulkStatusUpdate('delivered')
+        break
+      case 'mark-cancelled':
+        if (confirm(`Are you sure you want to cancel ${selectedOrders.length} orders?`)) {
+          handleBulkStatusUpdate('cancelled')
+        }
         break
     }
   }
@@ -321,7 +401,10 @@ const AdminOrders = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading orders...</p>
+        </div>
       </div>
     )
   }
@@ -332,14 +415,18 @@ const AdminOrders = () => {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Analytics Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="card bg-gradient-to-br from-blue-50 to-blue-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-blue-600 font-medium">Total Orders</p>
-              <p className="text-2xl font-bold text-blue-900">{statistics.totalOrders}</p>
-              <p className="text-xs text-blue-600 mt-1">All time orders</p>
+              <p className="text-2xl font-bold text-blue-900">
+                {analyticsLoading ? '...' : analytics.totalOrders.toLocaleString()}
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                {analytics.orderGrowth >= 0 ? '+' : ''}{analytics.orderGrowth}% from last period
+              </p>
             </div>
             <ShoppingCartIcon className="h-10 w-10 text-blue-500" />
           </div>
@@ -349,8 +436,12 @@ const AdminOrders = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-green-600 font-medium">Total Revenue</p>
-              <p className="text-2xl font-bold text-green-900">{formatPrice(statistics.totalRevenue || 0)}</p>
-              <p className="text-xs text-green-600 mt-1">Commission earned</p>
+              <p className="text-2xl font-bold text-green-900">
+                {analyticsLoading ? '...' : formatPrice(analytics.totalRevenue)}
+              </p>
+              <p className="text-xs text-green-600 mt-1">
+                {analytics.revenueGrowth >= 0 ? '+' : ''}{analytics.revenueGrowth}% revenue growth
+              </p>
             </div>
             <CurrencyDollarIcon className="h-10 w-10 text-green-500" />
           </div>
@@ -359,20 +450,28 @@ const AdminOrders = () => {
         <div className="card bg-gradient-to-br from-yellow-50 to-yellow-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-yellow-600 font-medium">Pending Orders</p>
-              <p className="text-2xl font-bold text-yellow-900">{statistics.pendingOrders}</p>
-              <p className="text-xs text-yellow-600 mt-1">Awaiting processing</p>
+              <p className="text-sm text-yellow-600 font-medium">Avg Order Value</p>
+              <p className="text-2xl font-bold text-yellow-900">
+                {analyticsLoading ? '...' : formatPrice(analytics.averageOrderValue)}
+              </p>
+              <p className="text-xs text-yellow-600 mt-1">
+                {analytics.pendingOrders} pending orders
+              </p>
             </div>
-            <ClockIcon className="h-10 w-10 text-yellow-500" />
+            <CurrencyDollarIcon className="h-10 w-10 text-yellow-500" />
           </div>
         </div>
 
         <div className="card bg-gradient-to-br from-purple-50 to-purple-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-purple-600 font-medium">Completed Orders</p>
-              <p className="text-2xl font-bold text-purple-900">{statistics.deliveredOrders}</p>
-              <p className="text-xs text-purple-600 mt-1">Successfully delivered</p>
+              <p className="text-sm text-purple-600 font-medium">Delivered Orders</p>
+              <p className="text-2xl font-bold text-purple-900">
+                {analyticsLoading ? '...' : analytics.deliveredOrders.toLocaleString()}
+              </p>
+              <p className="text-xs text-purple-600 mt-1">
+                {analytics.shippedOrders} currently shipping
+              </p>
             </div>
             <CheckCircleIcon className="h-10 w-10 text-purple-500" />
           </div>
@@ -409,10 +508,89 @@ const AdminOrders = () => {
           </div>
 
           <div className="flex gap-2">
-            <button className="btn-outline flex items-center gap-2">
-              <ArrowDownTrayIcon className="h-4 w-4" />
-              Export
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowDateFilter(!showDateFilter)}
+                className="btn-outline flex items-center gap-2"
+              >
+                <CalendarIcon className="h-4 w-4" />
+                Date Filter
+                <ChevronUpDownIcon className="h-4 w-4" />
+              </button>
+              
+              {showDateFilter && (
+                <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border p-4 z-20 min-w-[300px]">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                      <input
+                        type="date"
+                        value={dateRange.startDate}
+                        onChange={(e) => setDateRange({...dateRange, startDate: e.target.value})}
+                        className="w-full p-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                      <input
+                        type="date"
+                        value={dateRange.endDate}
+                        onChange={(e) => setDateRange({...dateRange, endDate: e.target.value})}
+                        className="w-full p-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={() => {
+                          setDateRange({ startDate: '', endDate: '' })
+                          setShowDateFilter(false)
+                        }}
+                        className="flex-1 btn-outline text-sm py-2"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => setShowDateFilter(false)}
+                        className="flex-1 btn-primary text-sm py-2"
+                      >
+                        Apply
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="relative group">
+              <button className="btn-outline flex items-center gap-2">
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                Export
+                <ChevronUpDownIcon className="h-4 w-4" />
+              </button>
+              
+              <div className="absolute right-0 top-full mt-2 bg-white rounded-lg shadow-lg border py-2 z-20 min-w-[160px] opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                <button
+                  onClick={() => handleBulkAction('export-all')}
+                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Export All Orders
+                </button>
+                <button
+                  onClick={() => handleBulkAction('export-filtered')}
+                  className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  Export Filtered
+                </button>
+                {selectedOrders.length > 0 && (
+                  <button
+                    onClick={() => handleBulkAction('export-selected')}
+                    className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
+                  >
+                    Export Selected ({selectedOrders.length})
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -422,24 +600,41 @@ const AdminOrders = () => {
             <span className="text-sm text-primary-700">
               {selectedOrders.length} order(s) selected
             </span>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
-                onClick={() => handleBulkAction('export')}
-                className="text-sm text-blue-600 hover:text-blue-700"
+                onClick={() => handleBulkAction('export-selected')}
+                className="text-sm text-blue-600 hover:text-blue-700 px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 disabled:opacity-50"
+                disabled={updateLoading === 'bulk'}
               >
-                Export
+                {updateLoading === 'bulk' ? 'Exporting...' : 'Export'}
+              </button>
+              <button
+                onClick={() => handleBulkAction('mark-processing')}
+                className="text-sm text-blue-600 hover:text-blue-700 px-2 py-1 rounded border border-blue-200 hover:bg-blue-50 disabled:opacity-50"
+                disabled={updateLoading === 'bulk'}
+              >
+                {updateLoading === 'bulk' ? 'Updating...' : 'Mark Processing'}
               </button>
               <button
                 onClick={() => handleBulkAction('mark-shipped')}
-                className="text-sm text-purple-600 hover:text-purple-700"
+                className="text-sm text-purple-600 hover:text-purple-700 px-2 py-1 rounded border border-purple-200 hover:bg-purple-50 disabled:opacity-50"
+                disabled={updateLoading === 'bulk'}
               >
-                Mark Shipped
+                {updateLoading === 'bulk' ? 'Updating...' : 'Mark Shipped'}
               </button>
               <button
                 onClick={() => handleBulkAction('mark-delivered')}
-                className="text-sm text-green-600 hover:text-green-700"
+                className="text-sm text-green-600 hover:text-green-700 px-2 py-1 rounded border border-green-200 hover:bg-green-50 disabled:opacity-50"
+                disabled={updateLoading === 'bulk'}
               >
-                Mark Delivered
+                {updateLoading === 'bulk' ? 'Updating...' : 'Mark Delivered'}
+              </button>
+              <button
+                onClick={() => handleBulkAction('mark-cancelled')}
+                className="text-sm text-red-600 hover:text-red-700 px-2 py-1 rounded border border-red-200 hover:bg-red-50 disabled:opacity-50"
+                disabled={updateLoading === 'bulk'}
+              >
+                {updateLoading === 'bulk' ? 'Updating...' : 'Cancel Orders'}
               </button>
             </div>
           </div>
@@ -463,7 +658,7 @@ const AdminOrders = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Order ID</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Product</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Buyer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Seller</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
@@ -521,8 +716,16 @@ const AdminOrders = () => {
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">
-                        <p className="font-medium text-gray-900">Admin</p>
-                        <p className="text-gray-600">Platform Sale</p>
+                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
+                          order.type === 'auction_win' 
+                            ? 'bg-orange-100 text-orange-700' 
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {order.type === 'auction_win' ? 'Auction' : 'Buy Now'}
+                        </span>
+                        {order.sellerId && (
+                          <p className="text-gray-600 text-xs mt-1">Seller: {order.sellerName || order.sellerId}</p>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3">
@@ -562,8 +765,13 @@ const AdminOrders = () => {
                             onClick={() => handleUpdateStatus(order.orderId, 'processing')}
                             className="p-1 text-gray-600 hover:text-blue-600"
                             title="Mark Processing"
+                            disabled={updateLoading === order.orderId}
                           >
-                            <CheckCircleIcon className="h-4 w-4" />
+                            {updateLoading === order.orderId ? (
+                              <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <CheckCircleIcon className="h-4 w-4" />
+                            )}
                           </button>
                         )}
                         {order.status === 'processing' && (
@@ -571,8 +779,13 @@ const AdminOrders = () => {
                             onClick={() => handleUpdateStatus(order.orderId, 'shipped')}
                             className="p-1 text-gray-600 hover:text-purple-600"
                             title="Mark Shipped"
+                            disabled={updateLoading === order.orderId}
                           >
-                            <TruckIcon className="h-4 w-4" />
+                            {updateLoading === order.orderId ? (
+                              <div className="h-4 w-4 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <TruckIcon className="h-4 w-4" />
+                            )}
                           </button>
                         )}
                         {order.status === 'shipped' && (
@@ -580,8 +793,13 @@ const AdminOrders = () => {
                             onClick={() => handleUpdateStatus(order.orderId, 'delivered')}
                             className="p-1 text-gray-600 hover:text-green-600"
                             title="Mark Delivered"
+                            disabled={updateLoading === order.orderId}
                           >
-                            <CheckCircleIcon className="h-4 w-4" />
+                            {updateLoading === order.orderId ? (
+                              <div className="h-4 w-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                              <CheckCircleIcon className="h-4 w-4" />
+                            )}
                           </button>
                         )}
                       </div>
@@ -718,30 +936,68 @@ const AdminOrders = () => {
                 )}
               </div>
 
-              {/* Admin Notes */}
+              {/* Admin Notes & Comments */}
               <div className="border rounded-lg p-4">
-                <h4 className="font-medium text-gray-900 mb-3">Admin Notes</h4>
+                <h4 className="font-medium text-gray-900 mb-3 flex items-center gap-2">
+                  <DocumentTextIcon className="h-4 w-4" />
+                  Admin Notes
+                </h4>
+                
+                {/* Existing notes display */}
+                {selectedOrder.adminNotes && (
+                  <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1">
+                      <UserIcon className="h-3 w-3" />
+                      Admin • {selectedOrder.updatedAt ? new Date(selectedOrder.updatedAt).toLocaleString() : 'Previous'}
+                    </div>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedOrder.adminNotes}</p>
+                  </div>
+                )}
+                
+                {/* Customer notes if any */}
+                {selectedOrder.customerNotes && (
+                  <div className="mb-3 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex items-center gap-2 text-xs text-blue-600 mb-1">
+                      <UserIcon className="h-3 w-3" />
+                      Customer Note
+                    </div>
+                    <p className="text-sm text-blue-700 whitespace-pre-wrap">{selectedOrder.customerNotes}</p>
+                  </div>
+                )}
+                
                 <textarea
-                  value={adminNotes || selectedOrder.adminNotes || ''}
+                  value={adminNotes}
                   onChange={(e) => setAdminNotes(e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg"
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                   rows={3}
                   placeholder="Add internal notes about this order..."
                 />
-                {adminNotes && (
-                  <button
-                    onClick={() => handleAddNotes(selectedOrder.orderId)}
-                    className="btn-primary mt-2"
-                  >
-                    Save Notes
-                  </button>
-                )}
+                
+                <div className="flex gap-2 mt-3">
+                  {adminNotes && (
+                    <>
+                      <button
+                        onClick={() => setAdminNotes('')}
+                        className="btn-outline text-sm py-2 px-3"
+                      >
+                        Clear
+                      </button>
+                      <button
+                        onClick={() => handleAddNotes(selectedOrder.orderId)}
+                        className="btn-primary text-sm py-2 px-3"
+                        disabled={updateLoading === selectedOrder.orderId}
+                      >
+                        {updateLoading === selectedOrder.orderId ? 'Saving...' : 'Save Notes'}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
               {/* Update Status */}
               <div className="border rounded-lg p-4">
                 <h4 className="font-medium text-gray-900 mb-3">Update Order Status</h4>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {selectedOrder.status === 'pending' && (
                     <button
                       onClick={() => {
@@ -749,19 +1005,22 @@ const AdminOrders = () => {
                         setShowOrderModal(false)
                       }}
                       className="btn-primary"
+                      disabled={updateLoading === selectedOrder.orderId}
                     >
-                      Mark as Processing
+                      {updateLoading === selectedOrder.orderId ? 'Updating...' : 'Mark as Processing'}
                     </button>
                   )}
                   {selectedOrder.status === 'processing' && (
                     <>
                       <button
                         onClick={() => {
-                          setSelectedOrder(selectedOrder)
                           setShowTrackingModal(true)
+                          setShowOrderModal(false)
                         }}
-                        className="btn-outline"
+                        className="btn-outline flex items-center gap-2"
+                        disabled={updateLoading === selectedOrder.orderId}
                       >
+                        <TruckIcon className="h-4 w-4" />
                         Add Tracking
                       </button>
                       <button
@@ -770,8 +1029,9 @@ const AdminOrders = () => {
                           setShowOrderModal(false)
                         }}
                         className="btn-primary"
+                        disabled={updateLoading === selectedOrder.orderId}
                       >
-                        Mark as Shipped
+                        {updateLoading === selectedOrder.orderId ? 'Updating...' : 'Mark as Shipped'}
                       </button>
                     </>
                   )}
@@ -782,19 +1042,23 @@ const AdminOrders = () => {
                         setShowOrderModal(false)
                       }}
                       className="btn-primary"
+                      disabled={updateLoading === selectedOrder.orderId}
                     >
-                      Mark as Delivered
+                      {updateLoading === selectedOrder.orderId ? 'Updating...' : 'Mark as Delivered'}
                     </button>
                   )}
                   {(selectedOrder.status === 'pending' || selectedOrder.status === 'processing') && (
                     <button
                       onClick={() => {
-                        handleUpdateStatus(selectedOrder.orderId, 'cancelled')
-                        setShowOrderModal(false)
+                        if (confirm(`Are you sure you want to cancel order ${selectedOrder.orderId}? This action cannot be undone.`)) {
+                          handleUpdateStatus(selectedOrder.orderId, 'cancelled')
+                          setShowOrderModal(false)
+                        }
                       }}
                       className="btn-outline text-red-600 border-red-600 hover:bg-red-50"
+                      disabled={updateLoading === selectedOrder.orderId}
                     >
-                      Cancel Order
+                      {updateLoading === selectedOrder.orderId ? 'Cancelling...' : 'Cancel Order'}
                     </button>
                   )}
                 </div>
@@ -803,10 +1067,21 @@ const AdminOrders = () => {
 
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShowOrderModal(false)}
+                onClick={() => {
+                  setShowOrderModal(false)
+                  setAdminNotes('')
+                }}
                 className="btn-outline flex-1"
               >
                 Close
+              </button>
+              <button
+                onClick={() => exportToCSV('selected')}
+                className="btn-primary flex items-center gap-2"
+                disabled={!selectedOrder}
+              >
+                <ArrowDownTrayIcon className="h-4 w-4" />
+                Export Order
               </button>
             </div>
           </motion.div>
@@ -836,6 +1111,27 @@ const AdminOrders = () => {
                   className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
                 />
               </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Shipping Carrier
+                </label>
+                <select
+                  value={shippingCarrier}
+                  onChange={(e) => setShippingCarrier(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="Standard Shipping">Standard Shipping</option>
+                  <option value="DHL">DHL</option>
+                  <option value="FedEx">FedEx</option>
+                  <option value="UPS">UPS</option>
+                  <option value="PostNet">PostNet</option>
+                  <option value="Aramex">Aramex</option>
+                  <option value="Courier Guy">The Courier Guy</option>
+                  <option value="Dawn Wing">Dawn Wing</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
             </div>
 
             <div className="flex gap-3 mt-6">
@@ -843,20 +1139,19 @@ const AdminOrders = () => {
                 onClick={() => {
                   setShowTrackingModal(false)
                   setTrackingNumber('')
+                  setShippingCarrier('Standard Shipping')
                 }}
                 className="btn-outline flex-1"
+                disabled={updateLoading === selectedOrder.orderId}
               >
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  handleAddTracking(selectedOrder.orderId)
-                  setShowTrackingModal(false)
-                }}
+                onClick={() => handleAddTracking(selectedOrder.orderId)}
                 className="btn-primary flex-1"
-                disabled={!trackingNumber}
+                disabled={!trackingNumber || updateLoading === selectedOrder.orderId}
               >
-                Add Tracking
+                {updateLoading === selectedOrder.orderId ? 'Adding...' : 'Add Tracking'}
               </button>
             </div>
           </motion.div>

@@ -42,9 +42,27 @@ router.post('/request', authMiddleware, async (req, res) => {
       .where('status', '==', 'pending')
       .get();
     
+    console.log(`Found ${pendingWithdrawals.size} pending withdrawals for user ${userId}`);
+    
     if (!pendingWithdrawals.empty) {
+      // Log details of pending withdrawals for debugging
+      const pendingDetails = [];
+      pendingWithdrawals.docs.forEach(doc => {
+        const data = doc.data();
+        console.log(`Pending withdrawal: ${doc.id}, status: ${data.status}, amount: ${data.amount}`);
+        pendingDetails.push({
+          id: doc.id,
+          amount: data.amount,
+          requestedAt: data.requestedAt
+        });
+      });
+      
+      // Get the first pending withdrawal for the error message
+      const firstPending = pendingDetails[0];
+      
       return res.status(400).json({ 
-        error: 'You have a pending withdrawal request. Please wait for it to be processed.' 
+        error: `You have a pending withdrawal request of R${firstPending.amount}. Please wait for it to be processed or cancel it first.`,
+        pendingWithdrawalId: firstPending.id
       });
     }
     
@@ -99,6 +117,61 @@ router.post('/request', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error creating withdrawal request:', error);
     res.status(500).json({ error: 'Failed to create withdrawal request' });
+  }
+});
+
+// Check and cleanup stuck withdrawals (admin only)
+router.post('/admin/cleanup-stuck', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+    
+    // Find all pending withdrawals for the user
+    const pendingWithdrawals = await db.collection('withdrawals')
+      .where('userId', '==', userId)
+      .where('status', '==', 'pending')
+      .get();
+    
+    const cleaned = [];
+    
+    for (const doc of pendingWithdrawals.docs) {
+      const data = doc.data();
+      // Check if it's older than 7 days (stuck)
+      const requestedAt = data.requestedAt?.toDate ? data.requestedAt.toDate() : new Date(data.requestedAt);
+      const daysSinceRequest = (Date.now() - requestedAt.getTime()) / (1000 * 60 * 60 * 24);
+      
+      if (daysSinceRequest > 7) {
+        // Mark as cancelled and refund
+        await doc.ref.update({
+          status: 'cancelled',
+          cancelledAt: admin.firestore.FieldValue.serverTimestamp(),
+          adminNotes: 'Auto-cancelled due to being stuck in pending state',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        // Refund the amount
+        const userRef = db.collection('users').doc(userId);
+        await userRef.update({
+          balance: admin.firestore.FieldValue.increment(data.amount),
+          heldBalance: admin.firestore.FieldValue.increment(-data.amount),
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        
+        cleaned.push({ id: doc.id, amount: data.amount });
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Cleaned up ${cleaned.length} stuck withdrawals`,
+      cleaned
+    });
+  } catch (error) {
+    console.error('Error cleaning up stuck withdrawals:', error);
+    res.status(500).json({ error: 'Failed to cleanup stuck withdrawals' });
   }
 });
 
@@ -347,6 +420,8 @@ router.delete('/:withdrawalId', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Only pending withdrawals can be cancelled' });
     }
     
+    console.log(`Cancelling withdrawal ${withdrawalId} with status: ${withdrawal.status}`);
+    
     // Cancel and refund
     await db.runTransaction(async (transaction) => {
       // Update withdrawal
@@ -365,9 +440,15 @@ router.delete('/:withdrawalId', authMiddleware, async (req, res) => {
       });
     });
     
+    // Verify the cancellation
+    const updatedDoc = await db.collection('withdrawals').doc(withdrawalId).get();
+    const updatedData = updatedDoc.data();
+    console.log(`Withdrawal ${withdrawalId} cancelled. New status: ${updatedData.status}`);
+    
     res.json({
       success: true,
-      message: 'Withdrawal request cancelled successfully'
+      message: 'Withdrawal request cancelled successfully',
+      newStatus: updatedData.status
     });
   } catch (error) {
     console.error('Error cancelling withdrawal:', error);

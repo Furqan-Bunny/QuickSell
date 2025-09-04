@@ -191,31 +191,51 @@ const CreateAuction = () => {
     setIsSubmitting(true)
 
     try {
-      // Mock API call - in real app, would upload to backend
-      await new Promise(resolve => setTimeout(resolve, 2000))
+      // Prepare form data for multipart upload
+      const formDataToSend = new FormData()
+      formDataToSend.append('title', formData.title)
+      formDataToSend.append('description', formData.description)
       
-      // Create auction data
-      const auctionData = {
-        ...formData,
-        id: `auction-${Date.now()}`,
-        seller: {
-          id: user?.id,
-          name: 'Quicksell Official',
-          rating: 5.0,
-          verified: true
-        },
-        currentPrice: parseFloat(formData.startingPrice),
-        startDate: new Date().toISOString(),
-        endDate: new Date(Date.now() + parseInt(formData.duration) * 24 * 60 * 60 * 1000).toISOString(),
-        status: 'active',
-        views: 0,
-        bids: 0,
-        watchers: 0,
-        images: imagePreview // In real app, these would be uploaded URLs
+      // Find the category name from the ID
+      const selectedCategory = categories.find(c => c.id === formData.category)
+      formDataToSend.append('category', selectedCategory?.name || '')
+      formDataToSend.append('categoryId', formData.category)
+      formDataToSend.append('startingPrice', formData.startingPrice)
+      formDataToSend.append('incrementAmount', formData.incrementAmount || '100')
+      formDataToSend.append('buyNowPrice', formData.buyNowPrice)
+      formDataToSend.append('condition', formData.condition)
+      
+      // Calculate end date based on duration
+      const endDate = new Date()
+      endDate.setDate(endDate.getDate() + parseInt(formData.duration))
+      formDataToSend.append('endDate', endDate.toISOString())
+      
+      // Add shipping info
+      const shipping = {
+        cost: formData.freeShipping ? 0 : parseFloat(formData.shippingCost || '0'),
+        location: formData.location || 'South Africa',
+        methods: ['Standard Shipping']
       }
-
-      console.log('Auction created:', auctionData)
-      toast.success('Auction created successfully!')
+      formDataToSend.append('shipping', JSON.stringify(shipping))
+      
+      // Add specifications (empty for now)
+      formDataToSend.append('specifications', JSON.stringify({}))
+      
+      // Add images
+      formData.images.forEach((image) => {
+        formDataToSend.append('images', image)
+      })
+      
+      // Send to backend
+      const response = await axios.post('/api/products', formDataToSend, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      })
+      
+      if (response.data.success) {
+        toast.success('Product created successfully!')
+        console.log('Product created:', response.data.data)
       
       // Reset form
       setFormData({
@@ -237,12 +257,16 @@ const CreateAuction = () => {
       setImagePreview([])
       setCurrentStep(1)
       
-      // Navigate to product listing or admin dashboard
-      navigate('/admin/products')
-      
-    } catch (error) {
-      toast.error('Failed to create auction. Please try again.')
-      console.error('Error creating auction:', error)
+        // Navigate to product listing or admin dashboard
+        setTimeout(() => {
+          navigate('/admin/products')
+        }, 1500)
+      } else {
+        toast.error('Failed to create product')
+      }
+    } catch (error: any) {
+      console.error('Error creating product:', error)
+      toast.error(error.response?.data?.error || 'Failed to create product. Please try again.')
     } finally {
       setIsSubmitting(false)
     }

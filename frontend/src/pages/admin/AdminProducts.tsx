@@ -58,7 +58,7 @@ const AdminProducts = () => {
   }
 
   const handleEdit = (productId: string) => {
-    navigate(`/admin/products/edit/${productId}`)
+    navigate(`/products/edit/${productId}`)
   }
 
   const handleDelete = async () => {
@@ -145,7 +145,7 @@ const AdminProducts = () => {
           <p className="text-gray-600 mt-1">Manage your products and listings</p>
         </div>
         <Link
-          to="/admin/products/create"
+          to="/products/create"
           className="btn-primary flex items-center"
         >
           <PlusCircleIcon className="h-5 w-5 mr-2" />
@@ -363,7 +363,7 @@ const AdminProducts = () => {
               {!searchQuery && filterStatus === 'all' && (
                 <div className="mt-6">
                   <Link
-                    to="/admin/products/create"
+                    to="/products/create"
                     className="btn-primary inline-flex items-center"
                   >
                     <PlusCircleIcon className="h-5 w-5 mr-2" />

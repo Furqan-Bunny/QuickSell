@@ -432,10 +432,10 @@ const AdminOrders = () => {
             <div>
               <p className="text-sm text-blue-600 font-medium">Total Orders</p>
               <p className="text-2xl font-bold text-blue-900">
-                {analyticsLoading ? '...' : analytics.totalOrders.toLocaleString()}
+                {analyticsLoading ? '...' : (analytics.totalOrders || 0).toLocaleString()}
               </p>
               <p className="text-xs text-blue-600 mt-1">
-                {analytics.orderGrowth >= 0 ? '+' : ''}{analytics.orderGrowth}% from last period
+                {analytics.orderGrowth >= 0 ? '+' : ''}{analytics.orderGrowth || 0}% from last period
               </p>
             </div>
             <ShoppingCartIcon className="h-10 w-10 text-blue-500" />
@@ -450,7 +450,7 @@ const AdminOrders = () => {
                 {analyticsLoading ? '...' : formatPrice(analytics.totalRevenue)}
               </p>
               <p className="text-xs text-green-600 mt-1">
-                {analytics.revenueGrowth >= 0 ? '+' : ''}{analytics.revenueGrowth}% revenue growth
+                {analytics.revenueGrowth >= 0 ? '+' : ''}{analytics.revenueGrowth || 0}% revenue growth
               </p>
             </div>
             <CurrencyDollarIcon className="h-10 w-10 text-green-500" />
@@ -465,7 +465,7 @@ const AdminOrders = () => {
                 {analyticsLoading ? '...' : formatPrice(analytics.averageOrderValue)}
               </p>
               <p className="text-xs text-yellow-600 mt-1">
-                {analytics.pendingOrders} pending orders
+                {analytics.pendingOrders || 0} pending orders
               </p>
             </div>
             <CurrencyDollarIcon className="h-10 w-10 text-yellow-500" />
@@ -477,10 +477,10 @@ const AdminOrders = () => {
             <div>
               <p className="text-sm text-purple-600 font-medium">Delivered Orders</p>
               <p className="text-2xl font-bold text-purple-900">
-                {analyticsLoading ? '...' : analytics.deliveredOrders.toLocaleString()}
+                {analyticsLoading ? '...' : (analytics.deliveredOrders || 0).toLocaleString()}
               </p>
               <p className="text-xs text-purple-600 mt-1">
-                {analytics.shippedOrders} currently shipping
+                {analytics.shippedOrders || 0} currently shipping
               </p>
             </div>
             <CheckCircleIcon className="h-10 w-10 text-purple-500" />

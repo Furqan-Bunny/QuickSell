@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
-import apiService from '../services/apiService';
+import apiService, { shippingAPI } from '../services/apiService';
 
 interface TrackingEvent {
   code: string;
@@ -68,7 +68,7 @@ export default function TrackingScreen({ navigation, route }: any) {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiService.get(`/shipping/track/${trackingNumber}`);
+      const response = await shippingAPI.trackShipment(trackingNumber);
       if (response.success && response.data.items.length > 0) {
         setTrackingInfo(response.data.items[0]);
       } else {

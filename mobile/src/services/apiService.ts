@@ -307,6 +307,33 @@ export const withdrawalAPI = {
   },
 };
 
+// Shipping APIs
+export const shippingAPI = {
+  trackShipment: async (trackingNumber: string) => {
+    return apiRequest(`/shipping/track/${trackingNumber}`);
+  },
+  
+  trackMultiple: async (trackingNumbers: string[]) => {
+    return apiRequest('/shipping/track-multiple', 'POST', { trackingNumbers });
+  },
+  
+  getMyShipments: async () => {
+    return apiRequest('/shipping/my-shipments');
+  },
+  
+  calculateRate: async (weight: number, destination: any, express: boolean) => {
+    return apiRequest('/shipping/calculate-rate', 'POST', { weight, destination, express });
+  },
+  
+  generateTracking: async (orderId: string) => {
+    return apiRequest('/shipping/generate-tracking', 'POST', { orderId });
+  },
+  
+  createShipment: async (orderId: string) => {
+    return apiRequest('/shipping/create-shipment', 'POST', { orderId });
+  },
+};
+
 // Export all APIs
 export default {
   auth: authAPI,
@@ -319,4 +346,7 @@ export default {
   notifications: notificationsAPI,
   affiliate: affiliateAPI,
   withdrawal: withdrawalAPI,
+  shipping: shippingAPI,
+  get: (url: string) => apiRequest(url),
+  post: (url: string, data: any) => apiRequest(url, 'POST', data),
 };

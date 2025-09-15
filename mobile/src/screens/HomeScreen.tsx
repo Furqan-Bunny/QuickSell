@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import productService, { Product } from '../services/productService';
 import authService from '../services/authService';
 import { getFirstImageUrl } from '../utils/imageHelper';
+import { testAuthToken } from '../utils/testAuth';
 
 export default function HomeScreen({ navigation }: any) {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
@@ -34,13 +35,15 @@ export default function HomeScreen({ navigation }: any) {
 
   const loadData = async () => {
     try {
-      const [featured, recent] = await Promise.all([
-        productService.getProducts({ featured: true, status: 'active' }),
-        productService.getProducts({ status: 'active' })
-      ]);
+      // Fetch ALL products without any status filter, like the main website does
+      const allProducts = await productService.getProducts();
       
-      setFeaturedProducts(featured.slice(0, 5));
-      setRecentProducts(recent.slice(0, 10));
+      // Filter featured products client-side
+      const featured = allProducts.filter((p: Product) => p.featured);
+      
+      // Show all products - featured ones in featured section, all products in recent section
+      setFeaturedProducts(featured); // Show all featured products
+      setRecentProducts(allProducts); // Show ALL products (not just active)
     } catch (error) {
       console.error('Error loading products:', error);
     } finally {
@@ -54,54 +57,83 @@ export default function HomeScreen({ navigation }: any) {
     loadData();
   };
 
-  const renderProductCard = ({ item }: { item: Product }) => (
-    <TouchableOpacity
-      style={styles.productCard}
-      onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-    >
-      <Image
-        source={{ uri: getFirstImageUrl(item.images) }}
-        style={styles.productImage}
-      />
-      <View style={styles.productInfo}>
-        <Text style={styles.productTitle} numberOfLines={1}>
-          {item.title}
-        </Text>
-        <Text style={styles.productPrice}>
-          {productService.formatPrice(item.currentPrice)}
-        </Text>
-        <View style={styles.productMeta}>
-          <Text style={styles.productBids}>{item.totalBids} bids</Text>
-          <Text style={styles.productTime}>
-            {productService.getTimeRemaining(item.endDate)}
+  const renderProductCard = ({ item }: { item: Product }) => {
+    const timeRemaining = productService.getTimeRemaining(item.endDate);
+    const isEnded = timeRemaining === 'Ended' || item.status === 'ended' || item.status === 'sold';
+    
+    return (
+      <TouchableOpacity
+        style={styles.productCard}
+        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+      >
+        <View>
+          <Image
+            source={{ uri: getFirstImageUrl(item.images) }}
+            style={[styles.productImage, isEnded && styles.productImageEnded]}
+          />
+          {isEnded && (
+            <View style={styles.endedOverlay}>
+              <Text style={styles.endedText}>ENDED</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.productInfo}>
+          <Text style={styles.productTitle} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <Text style={styles.productPrice}>
+            {productService.formatPrice(item.currentPrice)}
+          </Text>
+          <View style={styles.productMeta}>
+            <Text style={styles.productBids}>{item.totalBids} bids</Text>
+            <Text style={[styles.productTime, isEnded && styles.productTimeEnded]}>
+              {timeRemaining}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  const renderHorizontalProduct = ({ item }: { item: Product }) => {
+    const timeRemaining = productService.getTimeRemaining(item.endDate);
+    const isEnded = timeRemaining === 'Ended' || item.status === 'ended' || item.status === 'sold';
+    
+    return (
+      <TouchableOpacity
+        style={styles.featuredCard}
+        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+      >
+        <View>
+          <Image
+            source={{ uri: getFirstImageUrl(item.images) }}
+            style={[styles.featuredImage, isEnded && styles.productImageEnded]}
+          />
+          {!isEnded && (
+            <View style={styles.featuredBadge}>
+              <Text style={styles.featuredBadgeText}>Featured</Text>
+            </View>
+          )}
+          {isEnded && (
+            <View style={styles.endedOverlay}>
+              <Text style={styles.endedText}>ENDED</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.featuredInfo}>
+          <Text style={styles.featuredTitle} numberOfLines={2}>
+            {item.title}
+          </Text>
+          <Text style={styles.featuredPrice}>
+            {productService.formatPrice(item.currentPrice)}
+          </Text>
+          <Text style={[styles.timeText, isEnded && styles.productTimeEnded]}>
+            {timeRemaining}
           </Text>
         </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderHorizontalProduct = ({ item }: { item: Product }) => (
-    <TouchableOpacity
-      style={styles.featuredCard}
-      onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
-    >
-      <Image
-        source={{ uri: getFirstImageUrl(item.images) }}
-        style={styles.featuredImage}
-      />
-      <View style={styles.featuredBadge}>
-        <Text style={styles.featuredBadgeText}>Featured</Text>
-      </View>
-      <View style={styles.featuredInfo}>
-        <Text style={styles.featuredTitle} numberOfLines={2}>
-          {item.title}
-        </Text>
-        <Text style={styles.featuredPrice}>
-          {productService.formatPrice(item.currentPrice)}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
@@ -141,6 +173,41 @@ export default function HomeScreen({ navigation }: any) {
           onPress={() => navigation.navigate('Products')}
         >
           <Text style={styles.searchPlaceholder}>🔍 Search for products...</Text>
+        </TouchableOpacity>
+
+        {/* Quick Actions */}
+        <View style={styles.quickActions}>
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('Tracking')}
+          >
+            <Text style={styles.quickActionIcon}>📦</Text>
+            <Text style={styles.quickActionText}>Track Order</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('Orders')}
+          >
+            <Text style={styles.quickActionIcon}>📋</Text>
+            <Text style={styles.quickActionText}>My Orders</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.quickActionButton}
+            onPress={() => navigation.navigate('MyBids')}
+          >
+            <Text style={styles.quickActionIcon}>🎯</Text>
+            <Text style={styles.quickActionText}>My Bids</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Debug Auth Button - Remove this in production */}
+        <TouchableOpacity
+          style={[styles.searchBar, { backgroundColor: '#f0f0f0', marginTop: 10 }]}
+          onPress={async () => {
+            await testAuthToken();
+          }}
+        >
+          <Text style={styles.searchPlaceholder}>🔧 Test Auth Token</Text>
         </TouchableOpacity>
 
         {/* Categories */}
@@ -259,6 +326,33 @@ const styles = StyleSheet.create({
   searchPlaceholder: {
     color: '#a0aec0',
     fontSize: 16,
+  },
+  quickActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  quickActionButton: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    minWidth: 100,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  quickActionIcon: {
+    fontSize: 24,
+    marginBottom: 8,
+  },
+  quickActionText: {
+    fontSize: 12,
+    color: '#4a5568',
+    fontWeight: '500',
   },
   section: {
     marginBottom: 24,
@@ -400,5 +494,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#e53e3e',
     fontWeight: '500',
+  },
+  productImageEnded: {
+    opacity: 0.6,
+  },
+  productTimeEnded: {
+    color: '#718096',
+  },
+  endedOverlay: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -40 }, { translateY: -15 }],
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  endedText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  timeText: {
+    fontSize: 12,
+    color: '#718096',
+    marginTop: 4,
   },
 });

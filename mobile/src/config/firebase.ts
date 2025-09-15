@@ -1,13 +1,8 @@
-// Firebase configuration file for React Native
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { 
-  getAuth, 
-  initializeAuth, 
-  getReactNativePersistence 
-} from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+// Firebase configuration file for React Native - Using compat for better React Native support
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/auth';
+import 'firebase/compat/firestore';
+import 'firebase/compat/storage';
 
 export const firebaseConfig = {
   apiKey: "AIzaSyA9THl_SNKyazeQAEBV_PQUE10y9PqvGR4",
@@ -20,37 +15,18 @@ export const firebaseConfig = {
 
 // Initialize Firebase only if not already initialized
 let app;
-let auth;
-let db;
-let storage;
-
-try {
-  if (getApps().length === 0) {
-    app = initializeApp(firebaseConfig);
-    
-    // Initialize Auth with React Native persistence
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
-    });
-  } else {
-    app = getApp();
-    auth = getAuth(app);
-  }
-  
-  // Initialize Firestore and Storage
-  db = getFirestore(app);
-  storage = getStorage(app);
-} catch (error) {
-  console.error("Firebase initialization error:", error);
-  
-  // Fallback to basic initialization
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  auth = getAuth(app);
-  db = getFirestore(app);
-  storage = getStorage(app);
+if (!firebase.apps.length) {
+  app = firebase.initializeApp(firebaseConfig);
+} else {
+  app = firebase.app();
 }
 
-export { app, auth, db, storage };
+// Get services
+const auth = firebase.auth();
+const db = firebase.firestore();
+const storage = firebase.storage();
+
+export { app, auth, db, storage, firebase };
 
 // Export getter functions for compatibility
 export function getFirebaseApp() {
@@ -69,4 +45,4 @@ export function getFirebaseStorage() {
   return storage;
 }
 
-export default app;
+export default firebase;

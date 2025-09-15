@@ -649,4 +649,112 @@ router.put('/settings', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
+// Get all shipments for admin
+router.get('/shipments', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const shipmentsSnapshot = await db.collection('shipments').get();
+    const ordersSnapshot = await db.collection('orders')
+      .where('trackingNumber', '!=', null)
+      .get();
+    
+    // Combine shipment and order data
+    const shipments = [];
+    for (const doc of ordersSnapshot.docs) {
+      const order = doc.data();
+      const shipmentDoc = await db.collection('shipments').doc(doc.id).get();
+      
+      // Get product details
+      let product = {};
+      if (order.productId) {
+        const productDoc = await db.collection('products').doc(order.productId).get();
+        if (productDoc.exists) {
+          product = productDoc.data();
+        }
+      }
+      
+      // Get user details
+      let buyer = {};
+      let seller = {};
+      if (order.buyerId) {
+        const buyerDoc = await db.collection('users').doc(order.buyerId).get();
+        if (buyerDoc.exists) {
+          buyer = buyerDoc.data();
+        }
+      }
+      if (order.sellerId) {
+        const sellerDoc = await db.collection('users').doc(order.sellerId).get();
+        if (sellerDoc.exists) {
+          seller = sellerDoc.data();
+        }
+      }
+      
+      shipments.push({
+        id: doc.id,
+        orderId: doc.id,
+        trackingNumber: order.trackingNumber,
+        status: order.shippingStatus || order.status,
+        buyerName: `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim() || 'Unknown',
+        sellerName: seller.businessName || `${seller.firstName || ''} ${seller.lastName || ''}`.trim() || 'Unknown',
+        productTitle: product.title || order.productTitle || 'Unknown Product',
+        createdAt: order.shippedAt || order.createdAt,
+        updatedAt: order.updatedAt,
+        ...(shipmentDoc.exists ? shipmentDoc.data() : {})
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: shipments
+    });
+  } catch (error) {
+    console.error('Error fetching shipments:', error);
+    res.status(500).json({ error: 'Failed to fetch shipments' });
+  }
+});
+
+// Get shipping statistics
+router.get('/shipments/stats', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const ordersSnapshot = await db.collection('orders').get();
+    const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    const stats = {
+      totalShipments: orders.filter(o => o.trackingNumber).length,
+      pendingShipments: orders.filter(o => o.status === 'processing' && !o.trackingNumber).length,
+      inTransit: orders.filter(o => o.shippingStatus === 'shipped' || o.shippingStatus === 'in_transit').length,
+      delivered: orders.filter(o => o.shippingStatus === 'delivered' || o.status === 'delivered').length,
+      cancelled: orders.filter(o => o.shippingStatus === 'cancelled' || o.status === 'cancelled').length
+    };
+    
+    res.json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    console.error('Error fetching shipping stats:', error);
+    res.status(500).json({ error: 'Failed to fetch shipping statistics' });
+  }
+});
+
+// Update shipping settings
+router.post('/shipping/settings', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const settings = {
+      ...req.body,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedBy: req.user.uid
+    };
+    
+    await db.collection('settings').doc('shipping').set(settings, { merge: true });
+    
+    res.json({
+      success: true,
+      message: 'Shipping settings updated successfully'
+    });
+  } catch (error) {
+    console.error('Error updating shipping settings:', error);
+    res.status(500).json({ error: 'Failed to update shipping settings' });
+  }
+});
+
 module.exports = router;

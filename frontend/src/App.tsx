@@ -41,6 +41,7 @@ import AdminPayments from './pages/admin/AdminPayments'
 import AdminNotifications from './pages/admin/AdminNotifications'
 import AdminSettings from './pages/admin/AdminSettings'
 import AdminWithdrawals from './pages/admin/AdminWithdrawals'
+import AdminShipping from './pages/admin/AdminShipping'
 import AcceptInvite from './pages/AcceptInvite'
 
 function App() {
@@ -78,6 +79,7 @@ function App() {
         <Route path="reports" element={<AdminReports />} />
         <Route path="payments" element={<AdminPayments />} />
         <Route path="withdrawals" element={<AdminWithdrawals />} />
+        <Route path="shipping" element={<AdminShipping />} />
         <Route path="notifications" element={<AdminNotifications />} />
         <Route path="settings" element={<AdminSettings />} />
         <Route path="add-products" element={<AddProducts />} />

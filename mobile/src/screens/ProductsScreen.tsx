@@ -41,7 +41,8 @@ export default function ProductsScreen({ navigation }: any) {
 
   const loadProducts = async () => {
     try {
-      const data = await productService.getProducts({ status: 'active' });
+      // Fetch ALL products without status filter, like the main website
+      const data = await productService.getProducts();
       setProducts(data);
       setFilteredProducts(data);
     } catch (error) {

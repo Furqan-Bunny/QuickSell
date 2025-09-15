@@ -15,6 +15,11 @@ import ProductDetailScreen from './src/screens/ProductDetailScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import MyBidsScreen from './src/screens/MyBidsScreen';
 import AffiliateScreen from './src/screens/AffiliateScreen';
+import WishlistScreen from './src/screens/WishlistScreen';
+import OrdersScreen from './src/screens/OrdersScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import CheckoutScreen from './src/screens/CheckoutScreen';
+import TrackingScreen from './src/screens/TrackingScreen';
 
 import authService from './src/services/authService';
 
@@ -66,22 +71,22 @@ function MainTabs() {
         }}
       />
       <Tab.Screen 
-        name="MyBids" 
-        component={MyBidsScreen}
+        name="Wishlist" 
+        component={WishlistScreen}
         options={{
-          title: 'My Bids',
+          title: 'Wishlist',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: 20, color }}>🎯</Text>
+            <Text style={{ fontSize: 20, color }}>❤️</Text>
           ),
         }}
       />
       <Tab.Screen 
-        name="Affiliate" 
-        component={AffiliateScreen}
+        name="Orders" 
+        component={OrdersScreen}
         options={{
-          title: 'Earn',
+          title: 'Orders',
           tabBarIcon: ({ color, size }) => (
-            <Text style={{ fontSize: 20, color }}>💰</Text>
+            <Text style={{ fontSize: 20, color }}>📦</Text>
           ),
         }}
       />
@@ -134,6 +139,84 @@ function AppStack() {
           headerTitleStyle: {
             fontWeight: 'bold',
           },
+        }}
+      />
+      <Stack.Screen 
+        name="MyBids" 
+        component={MyBidsScreen}
+        options={{ 
+          title: 'My Bids',
+          headerStyle: {
+            backgroundColor: '#667eea',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="Notifications" 
+        component={NotificationsScreen}
+        options={{ 
+          title: 'Notifications',
+          headerStyle: {
+            backgroundColor: '#667eea',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="Checkout" 
+        component={CheckoutScreen}
+        options={{ 
+          title: 'Checkout',
+          headerStyle: {
+            backgroundColor: '#667eea',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="Affiliate" 
+        component={AffiliateScreen}
+        options={{ 
+          title: 'Earn with Referrals',
+          headerStyle: {
+            backgroundColor: '#667eea',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="OrderDetail" 
+        component={OrdersScreen}
+        options={{ 
+          title: 'Order Details',
+          headerStyle: {
+            backgroundColor: '#667eea',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      />
+      <Stack.Screen 
+        name="Tracking" 
+        component={TrackingScreen}
+        options={{ 
+          title: 'Track Shipment',
+          headerShown: false,
         }}
       />
     </Stack.Navigator>

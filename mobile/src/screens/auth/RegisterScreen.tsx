@@ -21,7 +21,9 @@ export default function RegisterScreen({ navigation }: any) {
   const [username, setUsername] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [referralInfo, setReferralInfo] = useState<any>(null);
 
   const handleRegister = async () => {
     if (!email || !password || !username || !firstName || !lastName) {
@@ -41,7 +43,7 @@ export default function RegisterScreen({ navigation }: any) {
 
     setLoading(true);
     try {
-      await authService.register(email, password, username, firstName, lastName);
+      await authService.register(email, password, username, firstName, lastName, referralCode);
       Alert.alert('Success', 'Account created successfully!');
     } catch (error: any) {
       Alert.alert('Registration Failed', error.message);
@@ -123,6 +125,23 @@ export default function RegisterScreen({ navigation }: any) {
                 autoCapitalize="none"
                 autoCorrect={false}
               />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Referral Code (Optional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter referral code"
+                value={referralCode}
+                onChangeText={setReferralCode}
+                autoCapitalize="characters"
+                autoCorrect={false}
+              />
+              {referralCode && (
+                <Text style={styles.referralHint}>
+                  🎁 You'll both receive rewards when you complete registration!
+                </Text>
+              )}
             </View>
 
             <View style={styles.inputContainer}>
@@ -249,5 +268,11 @@ const styles = StyleSheet.create({
   linkTextBold: {
     color: '#667eea',
     fontWeight: 'bold',
+  },
+  referralHint: {
+    fontSize: 12,
+    color: '#48bb78',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

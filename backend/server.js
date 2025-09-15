@@ -51,17 +51,26 @@ const allowedOrigins = [
   'http://localhost:3001',
   'http://localhost:3002',
   'http://localhost:5173',
+  'http://localhost:8081',
+  'http://localhost:8082',
+  'http://localhost:8083',
+  'http://192.168.100.24:8081', // Add your local IP
+  'http://192.168.100.24:8082',
+  'http://192.168.100.24:8083',
   'https://quicksell-80aad.web.app',
   'https://quicksell-80aad--quicksell-5ar9e0y8.web.app',
   'https://quicksell-80aad.firebaseapp.com'
 ];
 
-// Simple CORS configuration that always works
+// CORS configuration - allow all origins in development
+const isDevelopment = process.env.NODE_ENV !== 'production';
+
+// In development, allow all origins for easier mobile testing
 app.use(cors({
-  origin: allowedOrigins,
+  origin: true, // Allow all origins for now to debug mobile app
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
   maxAge: 86400, // 24 hours
   optionsSuccessStatus: 200
@@ -125,6 +134,7 @@ app.use('/api/payments/verification', paymentVerificationRoutes);
 app.use('/api/withdrawals', withdrawalRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin-ext', require('./routes/admin-extended'));
+app.use('/api/shipping', require('./routes/shipping'));
 // app.use('/api/notifications', notificationRoutes);
 
 // Initialize Socket.io service

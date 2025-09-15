@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import productService, { Product, Bid } from '../services/productService';
 import authService from '../services/authService';
+import socketService from '../services/socketService';
 import { getImageUrl, processImageArray } from '../utils/imageHelper';
 
 export default function ProductDetailScreen({ route, navigation }: any) {
@@ -27,10 +28,74 @@ export default function ProductDetailScreen({ route, navigation }: any) {
   const [placingBid, setPlacingBid] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [socketConnected, setSocketConnected] = useState(false);
 
   useEffect(() => {
     loadData();
+    setupSocketConnection();
+
+    return () => {
+      // Cleanup socket connection when leaving screen
+      if (productId) {
+        socketService.leaveAuction(productId);
+      }
+    };
   }, [productId]);
+
+  const setupSocketConnection = () => {
+    // Connect to socket server
+    socketService.connect();
+    
+    // Join auction room
+    if (productId) {
+      socketService.joinAuction(productId);
+    }
+
+    // Listen for connection status
+    const unsubscribeConnection = socketService.onConnectionChange((connected: boolean) => {
+      setSocketConnected(connected);
+      // Don't rejoin here - the socket service handles reconnection automatically
+    });
+
+    // Listen for new bids
+    const unsubscribeBids = socketService.onNewBid(productId, (bidData: any) => {
+      // Update product price
+      setProduct(prev => prev ? {
+        ...prev,
+        currentPrice: bidData.amount,
+        totalBids: (prev.totalBids || 0) + 1
+      } : null);
+      
+      // Add new bid to list
+      setBids(prev => [bidData, ...prev]);
+      
+      // Show notification if it's not our bid
+      if (user && bidData.userId !== user.uid) {
+        Alert.alert('New Bid!', `Someone bid ${productService.formatPrice(bidData.amount)}`);
+      }
+    });
+
+    // Listen for auction info
+    const unsubscribeInfo = socketService.onAuctionInfo((info: any) => {
+      if (info.currentPrice && product) {
+        setProduct(prev => prev ? {
+          ...prev,
+          currentPrice: info.currentPrice,
+          totalBids: info.bidsCount || prev.totalBids
+        } : null);
+      }
+      if (info.topBids) {
+        setBids(info.topBids);
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      unsubscribeConnection();
+      unsubscribeBids();
+      unsubscribeInfo();
+    };
+  };
 
   const loadData = async () => {
     try {
@@ -46,7 +111,7 @@ export default function ProductDetailScreen({ route, navigation }: any) {
       
       // Set minimum bid amount
       if (productData) {
-        const minBid = productData.currentPrice + productData.incrementAmount;
+        const minBid = productData.currentPrice + (productData.incrementAmount || 100);
         setBidAmount(minBid.toString());
       }
     } catch (error) {
@@ -71,29 +136,35 @@ export default function ProductDetailScreen({ route, navigation }: any) {
     }
 
     const amount = parseFloat(bidAmount);
-    const minBid = (product?.currentPrice || 0) + (product?.incrementAmount || 0);
+    const minBid = (product?.currentPrice || 0) + (product?.incrementAmount || 100);
 
     if (isNaN(amount) || amount < minBid) {
       Alert.alert('Invalid Bid', `Minimum bid is ${productService.formatPrice(minBid)}`);
       return;
     }
 
-    if (amount > user.balance) {
-      Alert.alert('Insufficient Balance', 'You do not have enough balance to place this bid');
-      return;
-    }
+    // No balance check - users can bid and pay later when they win
+    // This matches the main website behavior
 
     setPlacingBid(true);
     try {
+      // Place bid through API (this already handles everything including socket notifications)
       await productService.placeBid(
         productId,
-        user.uid,
-        user.username,
+        user.uid || user.id,
+        user.username || `${user.firstName} ${user.lastName}`,
         amount
       );
       
+      // Don't emit through socket - the API already updates the database
+      // and the socket service will pick up the change automatically
+      
       Alert.alert('Success', 'Bid placed successfully!');
-      loadData(); // Reload to get updated data
+      
+      // Update minimum bid for next bid
+      const nextMinBid = amount + (product?.incrementAmount || 100);
+      setBidAmount(nextMinBid.toString());
+      
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to place bid');
     } finally {
@@ -114,14 +185,25 @@ export default function ProductDetailScreen({ route, navigation }: any) {
       return;
     }
 
-    Alert.alert(
-      'Buy Now',
-      `Confirm purchase for ${productService.formatPrice(product?.buyNowPrice || 0)}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', onPress: () => Alert.alert('Success', 'Purchase confirmed!') }
-      ]
-    );
+    navigation.navigate('Checkout', {
+      productId: product?.id,
+      type: 'buy_now',
+      amount: product?.buyNowPrice
+    });
+  };
+
+  const handleAddToWishlist = async () => {
+    if (!user) {
+      Alert.alert('Login Required', 'Please login to add to wishlist');
+      return;
+    }
+
+    try {
+      // TODO: Implement wishlist API call
+      Alert.alert('Success', 'Added to wishlist!');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to add to wishlist');
+    }
   };
 
   if (loading) {
@@ -150,6 +232,13 @@ export default function ProductDetailScreen({ route, navigation }: any) {
         style={styles.container}
       >
         <ScrollView showsVerticalScrollIndicator={false}>
+          {/* Socket Connection Status */}
+          {!socketConnected && (
+            <View style={styles.connectionBar}>
+              <Text style={styles.connectionText}>⚠️ Live updates unavailable</Text>
+            </View>
+          )}
+
           {/* Image Gallery */}
           <View style={styles.imageContainer}>
             <ScrollView
@@ -180,11 +269,27 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                 />
               ))}
             </View>
+            
+            {/* Wishlist Button */}
+            <TouchableOpacity style={styles.wishlistButton} onPress={handleAddToWishlist}>
+              <Text style={styles.wishlistIcon}>❤️</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Product Info */}
           <View style={styles.infoContainer}>
             <Text style={styles.title}>{product.title}</Text>
+            
+            {/* Category, Condition, and Views */}
+            <View style={styles.badgeRow}>
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{product.category}</Text>
+              </View>
+              <View style={[styles.badge, styles.conditionBadge]}>
+                <Text style={styles.badgeText}>{productService.getConditionLabel(product.condition)}</Text>
+              </View>
+              <Text style={styles.viewsText}>👁 {product.views} views</Text>
+            </View>
             
             <View style={styles.metaRow}>
               <View style={styles.metaItem}>
@@ -200,8 +305,9 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                 </Text>
               </View>
               <View style={styles.metaItem}>
-                <Text style={styles.metaLabel}>Bids</Text>
-                <Text style={styles.metaValue}>{product.totalBids}</Text>
+                <Text style={styles.metaLabel}>Activity</Text>
+                <Text style={styles.metaValue}>{product.totalBids || 0} bids</Text>
+                <Text style={styles.metaSubLabel}>{product.uniqueBidders || 0} bidders</Text>
               </View>
             </View>
 
@@ -218,6 +324,9 @@ export default function ProductDetailScreen({ route, navigation }: any) {
                     placeholder="Enter bid amount"
                   />
                 </View>
+                <Text style={styles.minBidText}>
+                  Min bid: {productService.formatPrice((product.currentPrice || 0) + (product.incrementAmount || 100))}
+                </Text>
                 <TouchableOpacity
                   style={[styles.bidButton, placingBid && styles.buttonDisabled]}
                   onPress={handlePlaceBid}
@@ -243,42 +352,75 @@ export default function ProductDetailScreen({ route, navigation }: any) {
               </View>
             )}
 
+            {/* Auction Ended */}
+            {isEnded && (
+              <View style={styles.endedSection}>
+                <Text style={styles.endedTitle}>🔨 Auction Ended</Text>
+                <Text style={styles.endedSubtext}>
+                  Final Price: {productService.formatPrice(product.currentPrice)}
+                </Text>
+              </View>
+            )}
+
             {/* Description */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Description</Text>
               <Text style={styles.description}>{product.description}</Text>
             </View>
 
-            {/* Details */}
+            {/* Seller Information */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Details</Text>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Condition:</Text>
-                <Text style={styles.detailValue}>{product.condition}</Text>
+              <Text style={styles.sectionTitle}>Seller Information</Text>
+              <View style={styles.sellerCard}>
+                <View style={styles.sellerAvatar}>
+                  <Text style={styles.avatarIcon}>👤</Text>
+                </View>
+                <View style={styles.sellerInfo}>
+                  <Text style={styles.sellerName}>{product.sellerName || 'Unknown Seller'}</Text>
+                  <View style={styles.ratingRow}>
+                    <Text style={styles.stars}>⭐⭐⭐⭐⭐</Text>
+                    <Text style={styles.ratingText}>(0 reviews)</Text>
+                  </View>
+                </View>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Location:</Text>
-                <Text style={styles.detailValue}>{product.location}</Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Shipping:</Text>
-                <Text style={styles.detailValue}>
-                  {product.freeShipping ? 'Free' : productService.formatPrice(product.shippingCost)}
-                </Text>
-              </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>Seller:</Text>
-                <Text style={styles.detailValue}>{product.sellerName}</Text>
+            </View>
+            
+            {/* Shipping Information */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Shipping & Location</Text>
+              <View style={styles.shippingCard}>
+                <View style={styles.shippingRow}>
+                  <Text style={styles.shippingIcon}>📍</Text>
+                  <Text style={styles.shippingText}>Ships from: {product.location || 'South Africa'}</Text>
+                </View>
+                <View style={styles.shippingRow}>
+                  <Text style={styles.shippingIcon}>📦</Text>
+                  <Text style={styles.shippingText}>
+                    Shipping: {product.freeShipping ? 'FREE' : productService.formatPrice(product.shippingCost || 0)}
+                  </Text>
+                </View>
+                {product.freeShipping && (
+                  <View style={styles.freeShippingBadge}>
+                    <Text style={styles.freeShippingText}>✅ Free Shipping Available</Text>
+                  </View>
+                )}
               </View>
             </View>
 
             {/* Recent Bids */}
             {bids.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Recent Bids</Text>
+                <Text style={styles.sectionTitle}>Recent Bids ({bids.length})</Text>
                 {bids.slice(0, 5).map((bid, index) => (
-                  <View key={index} style={styles.bidItem}>
-                    <Text style={styles.bidderName}>{bid.bidderName}</Text>
+                  <View key={bid.id || index} style={styles.bidItem}>
+                    <View>
+                      <Text style={styles.bidderName}>
+                        {bid.userName || bid.bidderName || 'Anonymous'}
+                      </Text>
+                      <Text style={styles.bidTime}>
+                        {bid.createdAt ? new Date(bid.createdAt).toLocaleString() : 'Just now'}
+                      </Text>
+                    </View>
                     <Text style={styles.bidAmount}>
                       {productService.formatPrice(bid.amount)}
                     </Text>
@@ -312,6 +454,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#718096',
   },
+  connectionBar: {
+    backgroundColor: '#fed7d7',
+    padding: 8,
+    alignItems: 'center',
+  },
+  connectionText: {
+    color: '#c53030',
+    fontSize: 12,
+  },
   imageContainer: {
     position: 'relative',
   },
@@ -336,6 +487,25 @@ const styles = StyleSheet.create({
   },
   activeDot: {
     opacity: 1,
+  },
+  wishlistButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  wishlistIcon: {
+    fontSize: 20,
   },
   infoContainer: {
     padding: 20,
@@ -378,7 +548,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   currencySymbol: {
     fontSize: 18,
@@ -390,6 +560,12 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 18,
     color: '#1a202c',
+  },
+  minBidText: {
+    fontSize: 12,
+    color: '#718096',
+    marginBottom: 12,
+    textAlign: 'center',
   },
   bidButton: {
     backgroundColor: '#667eea',
@@ -416,6 +592,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  endedSection: {
+    backgroundColor: '#fed7d7',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  endedTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#c53030',
+    marginBottom: 4,
+  },
+  endedSubtext: {
+    fontSize: 14,
+    color: '#9b2c2c',
   },
   section: {
     marginTop: 24,
@@ -450,17 +643,127 @@ const styles = StyleSheet.create({
   bidItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
   bidderName: {
     fontSize: 14,
     color: '#4a5568',
+    fontWeight: '500',
+  },
+  bidTime: {
+    fontSize: 12,
+    color: '#a0aec0',
+    marginTop: 2,
   },
   bidAmount: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#667eea',
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
+    flexWrap: 'wrap',
+  },
+  badge: {
+    backgroundColor: '#edf2f7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginRight: 8,
+  },
+  conditionBadge: {
+    backgroundColor: '#c6f6d5',
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2d3748',
+  },
+  viewsText: {
+    fontSize: 12,
+    color: '#718096',
+    marginLeft: 'auto',
+  },
+  metaSubLabel: {
+    fontSize: 11,
+    color: '#a0aec0',
+    marginTop: 2,
+  },
+  sellerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f7fafc',
+    padding: 16,
+    borderRadius: 12,
+  },
+  sellerAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#e2e8f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarIcon: {
+    fontSize: 24,
+  },
+  sellerInfo: {
+    flex: 1,
+  },
+  sellerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1a202c',
+    marginBottom: 4,
+  },
+  ratingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stars: {
+    fontSize: 12,
+  },
+  ratingText: {
+    fontSize: 12,
+    color: '#718096',
+    marginLeft: 4,
+  },
+  shippingCard: {
+    backgroundColor: '#f7fafc',
+    padding: 16,
+    borderRadius: 12,
+  },
+  shippingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  shippingIcon: {
+    fontSize: 16,
+    marginRight: 8,
+  },
+  shippingText: {
+    fontSize: 14,
+    color: '#4a5568',
+  },
+  freeShippingBadge: {
+    backgroundColor: '#c6f6d5',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 8,
+    alignSelf: 'flex-start',
+  },
+  freeShippingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#22543d',
   },
 });

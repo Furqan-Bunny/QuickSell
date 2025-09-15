@@ -119,8 +119,11 @@ router.post('/login', [
   body('password').notEmpty()
 ], async (req, res) => {
   try {
+    console.log('Login attempt for:', req.body.email);
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
@@ -133,6 +136,11 @@ router.post('/login', [
     }
 
     // Check password
+    if (!user.password) {
+      console.log('User has no password field, might be a social login user');
+      return res.status(401).json({ error: 'Invalid credentials - please reset your password' });
+    }
+    
     const isMatch = await userUtils.comparePassword(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -153,22 +161,26 @@ router.post('/login', [
       { expiresIn: '7d' }
     );
 
+    console.log('Login successful for:', user.email);
+    
     res.json({
       token,
       user: {
         id: user.id,
+        uid: user.id, // Add uid for mobile app compatibility
         username: user.username,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
         avatar: user.avatar,
-        emailVerified: user.emailVerified
+        balance: user.balance || 0,
+        emailVerified: user.emailVerified || false
       }
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Server error', details: error.message });
   }
 });
 

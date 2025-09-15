@@ -1,4 +1,5 @@
 const admin = require('firebase-admin');
+const jwt = require('jsonwebtoken');
 
 const authMiddleware = async (req, res, next) => {
   try {
@@ -22,6 +23,30 @@ const authMiddleware = async (req, res, next) => {
       };
       req.token = token;
       return next();
+    }
+
+    // First try to verify as JWT token (from our login)
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret');
+      
+      // Get user from database using the userId from JWT
+      const { userUtils } = require('../utils/firestore');
+      const user = await userUtils.findById(decoded.userId);
+      
+      if (!user) {
+        throw new Error('User not found');
+      }
+      
+      req.user = {
+        uid: user.id,
+        ...user,
+        displayName: user.displayName || user.username || user.email
+      };
+      req.token = token;
+      return next();
+    } catch (jwtError) {
+      // If JWT verification fails, try Firebase ID token
+      console.log('JWT verification failed, trying Firebase token');
     }
 
     // Verify Firebase ID token

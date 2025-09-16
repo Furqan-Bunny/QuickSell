@@ -39,6 +39,13 @@ export default {
     // Disable all update mechanisms
     runtimeVersion: {
       policy: "nativeVersion"
-    }
+    },
+    // EAS Configuration
+    extra: {
+      eas: {
+        projectId: "164551f1-9453-4990-9b33-b4bea1444d08"
+      }
+    },
+    owner: "furqansaify"
   }
 };

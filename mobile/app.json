@@ -19,17 +19,32 @@
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.quicksell.app"
+      "bundleIdentifier": "com.quicksell.app",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#667eea"
       },
-      "package": "com.quicksell.app"
+      "package": "com.quicksell.app",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "164551f1-9453-4990-9b33-b4bea1444d08"
+      }
+    },
+    "owner": "furqansaify"
   }
 }

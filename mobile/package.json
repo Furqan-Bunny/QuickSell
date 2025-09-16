@@ -37,7 +37,7 @@
   "devDependencies": {
     "@babel/core": "^7.20.0",
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
-    "@types/react": "~18.2.14",
+    "@types/react": "^19.0.0",
     "metro": "^0.82.5",
     "metro-config": "^0.82.5",
     "metro-resolver": "^0.82.5",

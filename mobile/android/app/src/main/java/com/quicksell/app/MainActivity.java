@@ -1,5 +1,6 @@
 package com.quicksell.app;
-import expo.modules.splashscreen.SplashScreenManager;
+import expo.modules.splashscreen.singletons.SplashScreen;
+import expo.modules.splashscreen.SplashScreenImageResizeMode;
 
 import android.os.Build;
 import android.os.Bundle;
@@ -17,9 +18,9 @@ public class MainActivity extends ReactActivity {
     // Set the theme to AppTheme BEFORE onCreate to support 
     // coloring the background, status bar, and navigation bar.
     // This is required for expo-splash-screen.
-    // setTheme(R.style.AppTheme);
+    setTheme(R.style.AppTheme);
     // @generated begin expo-splashscreen - expo prebuild (DO NOT MODIFY) sync-9de1acb179e7badd745510fd00d9f3e42afcc9f5
-    SplashScreenManager.registerOnActivity(this);
+    SplashScreen.show(this, SplashScreenImageResizeMode.CONTAIN, ReactActivityDelegateWrapper.class, false);
     // @generated end expo-splashscreen
     super.onCreate(null);
   }

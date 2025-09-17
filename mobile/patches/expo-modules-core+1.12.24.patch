@@ -1,0 +1,15 @@
+diff --git a/node_modules/expo-modules-core/expo-module-gradle-plugin/build.gradle.kts b/node_modules/expo-modules-core/expo-module-gradle-plugin/build.gradle.kts
+index 1234567..8901234 100644
+--- a/node_modules/expo-modules-core/expo-module-gradle-plugin/build.gradle.kts
++++ b/node_modules/expo-modules-core/expo-module-gradle-plugin/build.gradle.kts
+@@ -15,8 +15,8 @@ kotlin {
+ 
+ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
+   kotlinOptions {
+-    project.findProperty("com.facebook.react.kotlin.compiler.api.version")?.toString()
+-      ?.extensions?.getByType(org.jetbrains.kotlin.gradle.dsl.KotlinJvmOptions::class)?.let {
++    val apiVersion = project.findProperty("com.facebook.react.kotlin.compiler.api.version")?.toString()
++    if (apiVersion != null) {
+         apiVersion = it
+       }
+   }

@@ -43,5 +43,8 @@
     "metro-resolver": "^0.82.5",
     "typescript": "^5.1.3"
   },
-  "private": true
+  "private": true,
+  "resolutions": {
+    "expo-modules-core": "1.11.13"
+  }
 }

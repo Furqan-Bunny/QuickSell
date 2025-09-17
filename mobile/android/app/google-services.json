@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "111968185466246308387",
+    "firebase_url": "https://quicksell-80aad-default-rtdb.firebaseio.com",
+    "project_id": "quicksell-80aad",
+    "storage_bucket": "quicksell-80aad.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:111968185466246308387:android:quicksell80aad",
+        "android_client_info": {
+          "package_name": "com.quicksell.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDquicksell-android-api-key"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

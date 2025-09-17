@@ -1,20 +1,41 @@
 rootProject.name = 'Quicksell'
 
-def expoPackageJson = ["node", "--print", "require.resolve('expo/package.json')"].execute(null, rootDir).text.trim()
-if (expoPackageJson) {
-  apply from: new File(expoPackageJson, "../scripts/autolinking.gradle");
-  useExpoModules()
+// Try to apply expo autolinking
+try {
+  def expoPackageJson = ["node", "--print", "require.resolve('expo/package.json')"].execute(null, rootDir).text.trim()
+  if (expoPackageJson && expoPackageJson != '') {
+    apply from: new File(expoPackageJson, "../scripts/autolinking.gradle")
+    useExpoModules()
+  }
+} catch (Exception e) {
+  println("Warning: Could not apply expo autolinking: " + e.message)
 }
 
-def cliPlatformAndroidPackageJson = ["node", "--print", "require.resolve('@react-native-community/cli-platform-android/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()
-if (cliPlatformAndroidPackageJson) {
-  apply from: new File(cliPlatformAndroidPackageJson, "../native_modules.gradle");
-  applyNativeModulesSettingsGradle(settings)
+// Try to apply React Native native modules
+try {
+  def rnPackageJson = ["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()
+  if (rnPackageJson && rnPackageJson != '') {
+    def cliPath = new File(rnPackageJson).parent + "/../@react-native-community/cli-platform-android/native_modules.gradle"
+    if (new File(cliPath).exists()) {
+      apply from: cliPath
+      applyNativeModulesSettingsGradle(settings)
+    }
+  }
+} catch (Exception e) {
+  println("Warning: Could not apply native modules: " + e.message)
 }
 
 include ':app'
 
-def gradlePluginPackageJson = ["node", "--print", "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })"].execute(null, rootDir).text.trim()
-if (gradlePluginPackageJson && gradlePluginPackageJson != '/') {
-  includeBuild(new File(gradlePluginPackageJson).getParentFile())
+// Try to include React Native gradle plugin
+try {
+  def rnPackageJson = ["node", "--print", "require.resolve('react-native/package.json')"].execute(null, rootDir).text.trim()
+  if (rnPackageJson && rnPackageJson != '') {
+    def gradlePluginPath = new File(rnPackageJson).parent + "/../@react-native/gradle-plugin"
+    if (new File(gradlePluginPath).exists()) {
+      includeBuild(gradlePluginPath)
+    }
+  }
+} catch (Exception e) {
+  println("Warning: Could not include gradle plugin: " + e.message)
 }
